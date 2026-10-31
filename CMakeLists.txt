@@ -1,6 +1,7 @@
+
 cmake_minimum_required(VERSION 3.16)
 
-project(compilador VERSION 0.1 LANGUAGES CXX)
+project(JackCompiler VERSION 0.1 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -13,36 +14,43 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Xml)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Xml)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+    src/main.cpp
+    src/mainwindow.cpp
+    src/mainwindow.h
+    src/mainwindow.ui
+
+    src/token.cpp
+    src/token.h
+
+    src/analisadorlexico.cpp
+    src/analisadorlexico.h
+
+    src/analisadorsintatico.cpp
+    src/analisadorsintatico.h
+
+    src/realcelexico.cpp
+    src/realcelexico.h
+
+    src/realcesintatico.cpp
+    src/realcesintatico.h
+
+    src/dialogsobre.cpp
+    src/dialogsobre.h
+    src/dialogsobre.ui
+
+    assets.qrc
 )
 
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+if(QT_VERSION_MAJOR GREATER_EQUAL 6)
     qt_add_executable(compilador
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        assets.qrc
-        analisadorlexico.h analisadorlexico.cpp
-        realcelexico.h realcelexico.cpp
-        token.h token.cpp
-        dialogsobre.h dialogsobre.cpp dialogsobre.ui
-        analisadorsintatico.h analisadorsintatico.cpp
-        realcesintatico.h realcesintatico.cpp
-
     )
-# Define target properties for Android with Qt 6 as:
-#    set_property(TARGET compilador APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 else()
     if(ANDROID)
         add_library(compilador SHARED
             ${PROJECT_SOURCES}
         )
-# Define properties for Android with Qt 5 after find_package() calls as:
-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     else()
         add_executable(compilador
             ${PROJECT_SOURCES}
@@ -55,12 +63,10 @@ target_link_libraries(compilador PRIVATE
     Qt${QT_VERSION_MAJOR}::Xml
 )
 
-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
-# If you are developing for iOS or macOS you should consider setting an
-# explicit, fixed bundle identifier manually though.
-if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.compilador)
+if(QT_VERSION VERSION_LESS 6.1.0)
+    set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.compilador)
 endif()
+
 set_target_properties(compilador PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -70,6 +76,7 @@ set_target_properties(compilador PROPERTIES
 )
 
 include(GNUInstallDirs)
+
 install(TARGETS compilador
     BUNDLE DESTINATION .
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

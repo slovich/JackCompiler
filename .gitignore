@@ -1,6 +1,7 @@
 # Diretórios de compilação
 build/
 cmake-build-*/
+out/
 
 # Arquivos locais do Qt Creator
 .qtcreator/
@@ -19,5 +20,14 @@ Makefile
 *.obj
 *.exe
 *.dll
+*.so
+*.dylib
 *.a
 *.lib
+
+# Arquivos de depuração
+*.pdb
+*.ilk
+
+# Arquivos compactados de projeto
+*.zip

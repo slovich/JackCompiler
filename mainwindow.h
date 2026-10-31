@@ -14,11 +14,13 @@
 #include <QHeaderView>
 #include <QXmlStreamWriter>
 #include <Qstack>
+#include <QDomDocument>
 #include "dialogsobre.h"
 #include "analisadorlexico.h"
 #include "analisadorsintatico.h"
 #include "token.h"
 #include "realcelexico.h"
+#include "realcesintatico.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -54,6 +56,7 @@ private:
     QFileSystemModel *dirmodel, *filemodel;
     QVector<Token> tokens;
     RealceLexico *realceLexico;
+    RealceSintatico *realceSintatico;
     QStandardItemModel *modeloTokens = nullptr, *modeloArvoreSintatica = nullptr;
 };
 #endif // MAINWINDOW_H

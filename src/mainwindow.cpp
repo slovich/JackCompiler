@@ -107,18 +107,32 @@ void MainWindow::on_pushButton_selecionar_clicked()
     QString codigoFonte = entrada.readAll();
     arquivo.close();
     codigoFonteAnalisado = codigoFonte;
-    //Cria o analisador com o código-fonte lido.
-    AnalisadorLexico analisador(codigoFonte);
-    //Executa a análise léxica.
-    QString erro;
-    if (!analisador.analisar(tokens, erro)) {
+    // Converte o código-fonte para o formato utilizado pelo núcleo C++.
+    AnalisadorLexico analisador(codigoFonte.toStdString());
+
+    // Executa a análise léxica.
+    std::vector<Token> tokensAnalisados;
+    std::string erroLexico;
+
+    if (!analisador.analisar(tokensAnalisados, erroLexico)) {
+        tokens.clear();
+
         QMessageBox::warning(
             this,
             "Erro léxico",
-            erro
+            QString::fromStdString(erroLexico)
             );
+
         return;
     }
+
+    // Transfere os tokens para a estrutura utilizada pela interface Qt.
+    tokens.clear();
+
+    for (const Token& token : tokensAnalisados) {
+        tokens.append(token);
+    }
+
     // Se a análise foi concluída com sucesso.
     caminhoArquivoAnalisado = caminhoArquivo;
     gerarResumo();

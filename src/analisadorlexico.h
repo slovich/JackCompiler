@@ -1,20 +1,20 @@
 #ifndef ANALISADORLEXICO_H
 #define ANALISADORLEXICO_H
 
-#include <QString>
-#include <QVector>
-#include <QStringList>
+#include <string>
+#include <vector>
+
 #include "token.h"
 
 class AnalisadorLexico
 {
 public:
-    explicit AnalisadorLexico(const QString& codigoFonte);
+    explicit AnalisadorLexico(const std::string& codigoFonte);
 
-    bool analisar(QVector<Token>& tokens, QString& erro) const;
+    bool analisar(std::vector<Token>& tokens, std::string& erro) const;
 
 private:
-    QString codigoFonte;
+    std::string codigoFonte;
 };
 
 #endif // ANALISADORLEXICO_H

@@ -1,46 +1,46 @@
 #ifndef ANALISADORSINTATICO_H
 #define ANALISADORSINTATICO_H
 
-#include "token.h"
+#include <string>
+#include <vector>
 
-#include <QString>
-#include <QVector>
+#include "token.h"
 
 class AnalisadorSintatico
 {
 public:
-    explicit AnalisadorSintatico(const QVector<Token> &tokens);
+    explicit AnalisadorSintatico(const std::vector<Token>& tokens);
 
     bool analisar();
 
-    QString obterXML() const;
-    QString obterErro() const;
+    std::string obterXML() const;
+    std::string obterErro() const;
 
 private:
-    QVector<Token> tokens;
+    std::vector<Token> tokens;
     int indiceAtual;
 
-    QString xml;
-    QString erro;
+    std::string xml;
+    std::string erro;
 
     // Acesso aos tokens
-    const Token *tokenAtual() const;
-    const Token *peek() const;
+    const Token* tokenAtual() const;
+    const Token* peek() const;
 
     // Reconhecimento de tokens
     bool match(TipoToken tipo) const;
-    bool match(TipoToken tipo, const QString &lexema) const;
+    bool match(TipoToken tipo, const std::string& lexema) const;
 
     bool consume(TipoToken tipo);
-    bool consume(TipoToken tipo, const QString &lexema);
+    bool consume(TipoToken tipo, const std::string& lexema);
 
     void advance();
 
     // Construção do XML
-    void abrirTag(const QString &tag);
-    void fecharTag(const QString &tag);
-    void adicionarTokenXML(const Token &token);
-    QString escaparXML(const QString &texto) const;
+    void abrirTag(const std::string& tag);
+    void fecharTag(const std::string& tag);
+    void adicionarTokenXML(const Token& token);
+    std::string escaparXML(const std::string& texto) const;
 
     // Regras da gramática
     bool compileClass();

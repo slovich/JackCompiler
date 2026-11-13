@@ -1,25 +1,27 @@
 #include "analisadorsintatico.h"
 
-AnalisadorSintatico::AnalisadorSintatico(const QVector<Token> &tokens)
+AnalisadorSintatico::AnalisadorSintatico(const std::vector<Token>& tokens)
     : tokens(tokens),
     indiceAtual(0)
 {
 }
 
-const Token *AnalisadorSintatico::tokenAtual() const
+const Token* AnalisadorSintatico::tokenAtual() const
 {
-    if (indiceAtual < 0 || indiceAtual >= tokens.size()) {
+    if (indiceAtual < 0
+        || indiceAtual >= static_cast<int>(tokens.size())) {
         return nullptr;
     }
 
     return &tokens[indiceAtual];
 }
 
-const Token *AnalisadorSintatico::peek() const
+const Token* AnalisadorSintatico::peek() const
 {
     const int proximoIndice = indiceAtual + 1;
 
-    if (proximoIndice < 0 || proximoIndice >= tokens.size()) {
+    if (proximoIndice < 0
+        || proximoIndice >= static_cast<int>(tokens.size())) {
         return nullptr;
     }
 
@@ -28,25 +30,24 @@ const Token *AnalisadorSintatico::peek() const
 
 bool AnalisadorSintatico::match(TipoToken tipo) const
 {
-    const Token *token = tokenAtual();
-
+    const Token* token = tokenAtual();
     return token != nullptr && token->tipo == tipo;
 }
 
 bool AnalisadorSintatico::match(
     TipoToken tipo,
-    const QString &lexema) const
+    const std::string& lexema) const
 {
-    const Token *token = tokenAtual();
+    const Token* token = tokenAtual();
 
     return token != nullptr
            && token->tipo == tipo
-           && QString::fromStdString(token->lexema) == lexema;
+           && token->lexema == lexema;
 }
 
 void AnalisadorSintatico::advance()
 {
-    if (indiceAtual < tokens.size()) {
+    if (indiceAtual < static_cast<int>(tokens.size())) {
         ++indiceAtual;
     }
 }
@@ -54,7 +55,7 @@ void AnalisadorSintatico::advance()
 bool AnalisadorSintatico::consume(TipoToken tipo)
 {
     if (match(tipo)) {
-        const Token *token = tokenAtual();
+        const Token* token = tokenAtual();
 
         if (token != nullptr) {
             adicionarTokenXML(*token);
@@ -64,18 +65,18 @@ bool AnalisadorSintatico::consume(TipoToken tipo)
         return true;
     }
 
-    const Token *token = tokenAtual();
+    const Token* token = tokenAtual();
 
     if (token != nullptr) {
-        erro = QStringLiteral(
-                   "Erro sintático na linha %1, coluna %2: "
-                   "token inesperado '%3'.")
-                   .arg(token->linha)
-                   .arg(token->coluna)
-                   .arg(token->lexema);
+        erro = "Erro sintático na linha "
+               + std::to_string(token->linha)
+               + ", coluna "
+               + std::to_string(token->coluna)
+               + ": token inesperado '"
+               + token->lexema
+               + "'.";
     } else {
-        erro = QStringLiteral(
-            "Erro sintático: fim inesperado dos tokens.");
+        erro = "Erro sintático: fim inesperado dos tokens.";
     }
 
     return false;
@@ -83,10 +84,10 @@ bool AnalisadorSintatico::consume(TipoToken tipo)
 
 bool AnalisadorSintatico::consume(
     TipoToken tipo,
-    const QString &lexema)
+    const std::string& lexema)
 {
     if (match(tipo, lexema)) {
-        const Token *token = tokenAtual();
+        const Token* token = tokenAtual();
 
         if (token != nullptr) {
             adicionarTokenXML(*token);
@@ -96,86 +97,100 @@ bool AnalisadorSintatico::consume(
         return true;
     }
 
-    const Token *token = tokenAtual();
+    const Token* token = tokenAtual();
 
     if (token != nullptr) {
-        erro = QStringLiteral(
-                   "Erro sintático na linha %1, coluna %2: "
-                   "esperado '%3', encontrado '%4'.")
-                   .arg(token->linha)
-                   .arg(token->coluna)
-                   .arg(lexema)
-                   .arg(QString::fromStdString(token->lexema));
+        erro = "Erro sintático na linha "
+               + std::to_string(token->linha)
+               + ", coluna "
+               + std::to_string(token->coluna)
+               + ": esperado '"
+               + lexema
+               + "', encontrado '"
+               + token->lexema
+               + "'.";
     } else {
-        erro = QStringLiteral(
-                   "Erro sintático: esperado '%1', "
-                   "mas o arquivo terminou.")
-                   .arg(lexema);
+        erro = "Erro sintático: esperado '"
+               + lexema
+               + "', mas o arquivo terminou.";
     }
 
     return false;
 }
 
-void AnalisadorSintatico::abrirTag(const QString &tag)
+void AnalisadorSintatico::abrirTag(const std::string& tag)
 {
-    xml += QStringLiteral("<%1>\n").arg(tag);
+    xml += "<" + tag + ">\n";
 }
 
-void AnalisadorSintatico::fecharTag(const QString &tag)
+void AnalisadorSintatico::fecharTag(const std::string& tag)
 {
-    xml += QStringLiteral("</%1>\n").arg(tag);
+    xml += "</" + tag + ">\n";
 }
 
-QString AnalisadorSintatico::escaparXML(const QString &texto) const
+std::string AnalisadorSintatico::escaparXML(const std::string& texto) const
 {
-    QString resultado = texto;
+    std::string resultado;
+    resultado.reserve(texto.size());
 
-    resultado.replace(QStringLiteral("&"), QStringLiteral("&amp;"));
-    resultado.replace(QStringLiteral("<"), QStringLiteral("&lt;"));
-    resultado.replace(QStringLiteral(">"), QStringLiteral("&gt;"));
-    resultado.replace(QStringLiteral("\""), QStringLiteral("&quot;"));
+    for (char caractere : texto) {
+        switch (caractere) {
+        case '&':
+            resultado += "&amp;";
+            break;
+        case '<':
+            resultado += "&lt;";
+            break;
+        case '>':
+            resultado += "&gt;";
+            break;
+        case '"':
+            resultado += "&quot;";
+            break;
+        default:
+            resultado += caractere;
+            break;
+        }
+    }
 
     return resultado;
 }
 
-void AnalisadorSintatico::adicionarTokenXML(const Token &token)
+void AnalisadorSintatico::adicionarTokenXML(const Token& token)
 {
-    QString nomeTag;
+    std::string nomeTag;
 
     switch (token.tipo) {
     case TipoToken::Keyword:
-        nomeTag = QStringLiteral("keyword");
+        nomeTag = "keyword";
         break;
-
     case TipoToken::Symbol:
-        nomeTag = QStringLiteral("symbol");
+        nomeTag = "symbol";
         break;
-
     case TipoToken::IntegerConstant:
-        nomeTag = QStringLiteral("integerConstant");
+        nomeTag = "integerConstant";
         break;
-
     case TipoToken::StringConstant:
-        nomeTag = QStringLiteral("stringConstant");
+        nomeTag = "stringConstant";
         break;
-
     case TipoToken::Identifier:
-        nomeTag = QStringLiteral("identifier");
+        nomeTag = "identifier";
         break;
     }
 
-    xml += QStringLiteral("<%1> %2 </%1>\n")
-               .arg(nomeTag, escaparXML(QString::fromStdString(token.lexema)));
+    xml += "<" + nomeTag + "> "
+           + escaparXML(token.lexema)
+           + " </" + nomeTag + ">\n";
 }
 
 bool AnalisadorSintatico::compileClassVarDec()
 {
-    abrirTag(QStringLiteral("classVarDec"));
+    abrirTag("classVarDec");
 
     // ('static' | 'field')
-    if (!match(TipoToken::Keyword, QStringLiteral("static"))
-        && !match(TipoToken::Keyword, QStringLiteral("field"))) {
-        erro = QStringLiteral(
+    if (!match(TipoToken::Keyword, "static")
+        && !match(TipoToken::Keyword, "field")) {
+        erro = (
             "Erro sintático: esperada a palavra-chave 'static' ou 'field'.");
         return false;
     }
@@ -185,9 +200,9 @@ bool AnalisadorSintatico::compileClassVarDec()
     advance();
 
     // type: 'int' | 'char' | 'boolean' | className
-    if (match(TipoToken::Keyword, QStringLiteral("int"))
-        || match(TipoToken::Keyword, QStringLiteral("char"))
-        || match(TipoToken::Keyword, QStringLiteral("boolean"))) {
+    if (match(TipoToken::Keyword, "int")
+        || match(TipoToken::Keyword, "char")
+        || match(TipoToken::Keyword, "boolean")) {
 
         token = tokenAtual();
         adicionarTokenXML(*token);
@@ -200,7 +215,7 @@ bool AnalisadorSintatico::compileClassVarDec()
         advance();
 
     } else {
-        erro = QStringLiteral(
+        erro = (
             "Erro sintático: esperado um tipo válido na declaração de variável de classe.");
         return false;
     }
@@ -211,8 +226,8 @@ bool AnalisadorSintatico::compileClassVarDec()
     }
 
     // (',' varName)*
-    while (match(TipoToken::Symbol, QStringLiteral(","))) {
-        if (!consume(TipoToken::Symbol, QStringLiteral(","))) {
+    while (match(TipoToken::Symbol, ",")) {
+        if (!consume(TipoToken::Symbol, ",")) {
             return false;
         }
 
@@ -222,18 +237,18 @@ bool AnalisadorSintatico::compileClassVarDec()
     }
 
     // ';'
-    if (!consume(TipoToken::Symbol, QStringLiteral(";"))) {
+    if (!consume(TipoToken::Symbol, ";")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("classVarDec"));
+    fecharTag("classVarDec");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileExpression()
 {
-    abrirTag(QStringLiteral("expression"));
+    abrirTag("expression");
 
     // O primeiro termo é obrigatório.
     if (!compileTerm()) {
@@ -242,15 +257,15 @@ bool AnalisadorSintatico::compileExpression()
 
     // Operadores binários da gramática Jack:
     // + - * / & | < > =
-    while (match(TipoToken::Symbol, QStringLiteral("+"))
-           || match(TipoToken::Symbol, QStringLiteral("-"))
-           || match(TipoToken::Symbol, QStringLiteral("*"))
-           || match(TipoToken::Symbol, QStringLiteral("/"))
-           || match(TipoToken::Symbol, QStringLiteral("&"))
-           || match(TipoToken::Symbol, QStringLiteral("|"))
-           || match(TipoToken::Symbol, QStringLiteral("<"))
-           || match(TipoToken::Symbol, QStringLiteral(">"))
-           || match(TipoToken::Symbol, QStringLiteral("="))) {
+    while (match(TipoToken::Symbol, "+")
+           || match(TipoToken::Symbol, "-")
+           || match(TipoToken::Symbol, "*")
+           || match(TipoToken::Symbol, "/")
+           || match(TipoToken::Symbol, "&")
+           || match(TipoToken::Symbol, "|")
+           || match(TipoToken::Symbol, "<")
+           || match(TipoToken::Symbol, ">")
+           || match(TipoToken::Symbol, "=")) {
 
         // Consome e registra o operador.
         const Token *token = tokenAtual();
@@ -263,17 +278,17 @@ bool AnalisadorSintatico::compileExpression()
         }
     }
 
-    fecharTag(QStringLiteral("expression"));
+    fecharTag("expression");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileExpressionList()
 {
-    abrirTag(QStringLiteral("expressionList"));
+    abrirTag("expressionList");
 
     // A lista pode estar vazia.
-    if (!match(TipoToken::Symbol, QStringLiteral(")"))) {
+    if (!match(TipoToken::Symbol, ")")) {
 
         // Analisa a primeira expressão.
         if (!compileExpression()) {
@@ -281,9 +296,9 @@ bool AnalisadorSintatico::compileExpressionList()
         }
 
         // Analisa as expressões seguintes, separadas por vírgulas.
-        while (match(TipoToken::Symbol, QStringLiteral(","))) {
+        while (match(TipoToken::Symbol, ",")) {
 
-            if (!consume(TipoToken::Symbol, QStringLiteral(","))) {
+            if (!consume(TipoToken::Symbol, ",")) {
                 return false;
             }
 
@@ -293,14 +308,14 @@ bool AnalisadorSintatico::compileExpressionList()
         }
     }
 
-    fecharTag(QStringLiteral("expressionList"));
+    fecharTag("expressionList");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileTerm()
 {
-    abrirTag(QStringLiteral("term"));
+    abrirTag("term");
 
     // integerConstant
     if (match(TipoToken::IntegerConstant)) {
@@ -315,18 +330,18 @@ bool AnalisadorSintatico::compileTerm()
         advance();
 
         // keywordConstant: true, false, null, this
-    } else if (match(TipoToken::Keyword, QStringLiteral("true"))
-               || match(TipoToken::Keyword, QStringLiteral("false"))
-               || match(TipoToken::Keyword, QStringLiteral("null"))
-               || match(TipoToken::Keyword, QStringLiteral("this"))) {
+    } else if (match(TipoToken::Keyword, "true")
+               || match(TipoToken::Keyword, "false")
+               || match(TipoToken::Keyword, "null")
+               || match(TipoToken::Keyword, "this")) {
 
         const Token *token = tokenAtual();
         adicionarTokenXML(*token);
         advance();
 
         // unaryOp term: '-' term ou '~' term
-    } else if (match(TipoToken::Symbol, QStringLiteral("-"))
-               || match(TipoToken::Symbol, QStringLiteral("~"))) {
+    } else if (match(TipoToken::Symbol, "-")
+               || match(TipoToken::Symbol, "~")) {
 
         // Registra e consome o operador unário.
         const Token *token = tokenAtual();
@@ -339,9 +354,9 @@ bool AnalisadorSintatico::compileTerm()
         }
 
         // '(' expression ')'
-    } else if (match(TipoToken::Symbol, QStringLiteral("("))) {
+    } else if (match(TipoToken::Symbol, "(")) {
 
-        if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+        if (!consume(TipoToken::Symbol, "(")) {
             return false;
         }
 
@@ -349,7 +364,7 @@ bool AnalisadorSintatico::compileTerm()
             return false;
         }
 
-        if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+        if (!consume(TipoToken::Symbol, ")")) {
             return false;
         }
 
@@ -364,9 +379,9 @@ bool AnalisadorSintatico::compileTerm()
         advance();
 
         // Caso 1: acesso a elemento de array.
-        if (match(TipoToken::Symbol, QStringLiteral("["))) {
+        if (match(TipoToken::Symbol, "[")) {
 
-            if (!consume(TipoToken::Symbol, QStringLiteral("["))) {
+            if (!consume(TipoToken::Symbol, "[")) {
                 return false;
             }
 
@@ -374,14 +389,14 @@ bool AnalisadorSintatico::compileTerm()
                 return false;
             }
 
-            if (!consume(TipoToken::Symbol, QStringLiteral("]"))) {
+            if (!consume(TipoToken::Symbol, "]")) {
                 return false;
             }
 
             // Caso 2: chamada qualificada, como Math.multiply(...).
-        } else if (match(TipoToken::Symbol, QStringLiteral("."))) {
+        } else if (match(TipoToken::Symbol, ".")) {
 
-            if (!consume(TipoToken::Symbol, QStringLiteral("."))) {
+            if (!consume(TipoToken::Symbol, ".")) {
                 return false;
             }
 
@@ -389,7 +404,7 @@ bool AnalisadorSintatico::compileTerm()
                 return false;
             }
 
-            if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+            if (!consume(TipoToken::Symbol, "(")) {
                 return false;
             }
 
@@ -397,14 +412,14 @@ bool AnalisadorSintatico::compileTerm()
                 return false;
             }
 
-            if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+            if (!consume(TipoToken::Symbol, ")")) {
                 return false;
             }
 
             // Caso 3: chamada direta, como obterValor(...).
-        } else if (match(TipoToken::Symbol, QStringLiteral("("))) {
+        } else if (match(TipoToken::Symbol, "(")) {
 
-            if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+            if (!consume(TipoToken::Symbol, "(")) {
                 return false;
             }
 
@@ -412,7 +427,7 @@ bool AnalisadorSintatico::compileTerm()
                 return false;
             }
 
-            if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+            if (!consume(TipoToken::Symbol, ")")) {
                 return false;
             }
 
@@ -424,14 +439,15 @@ bool AnalisadorSintatico::compileTerm()
         const Token *token = tokenAtual();
 
         if (token != nullptr) {
-            erro = QStringLiteral(
-                       "Erro sintático na linha %1, coluna %2: "
-                       "termo inválido, encontrado '%3'.")
-                       .arg(token->linha)
-                       .arg(token->coluna)
-                       .arg(QString::fromStdString(token->lexema));
+            erro = "Erro sintático na linha "
+                   + std::to_string(token->linha)
+                   + ", coluna "
+                   + std::to_string(token->coluna)
+                   + ": termo inválido, encontrado '"
+                   + token->lexema
+                   + "'.";
         } else {
-            erro = QStringLiteral(
+            erro = (
                 "Erro sintático: esperado um termo, "
                 "mas o arquivo terminou.");
         }
@@ -439,17 +455,17 @@ bool AnalisadorSintatico::compileTerm()
         return false;
     }
 
-    fecharTag(QStringLiteral("term"));
+    fecharTag("term");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileLet()
 {
-    abrirTag(QStringLiteral("letStatement"));
+    abrirTag("letStatement");
 
     // 'let'
-    if (!consume(TipoToken::Keyword, QStringLiteral("let"))) {
+    if (!consume(TipoToken::Keyword, "let")) {
         return false;
     }
 
@@ -459,10 +475,10 @@ bool AnalisadorSintatico::compileLet()
     }
 
     // Acesso opcional a elemento de array: varName[expression]
-    if (match(TipoToken::Symbol, QStringLiteral("["))) {
+    if (match(TipoToken::Symbol, "[")) {
 
         // '['
-        if (!consume(TipoToken::Symbol, QStringLiteral("["))) {
+        if (!consume(TipoToken::Symbol, "[")) {
             return false;
         }
 
@@ -472,13 +488,13 @@ bool AnalisadorSintatico::compileLet()
         }
 
         // ']'
-        if (!consume(TipoToken::Symbol, QStringLiteral("]"))) {
+        if (!consume(TipoToken::Symbol, "]")) {
             return false;
         }
     }
 
     // '='
-    if (!consume(TipoToken::Symbol, QStringLiteral("="))) {
+    if (!consume(TipoToken::Symbol, "=")) {
         return false;
     }
 
@@ -488,26 +504,26 @@ bool AnalisadorSintatico::compileLet()
     }
 
     // ';'
-    if (!consume(TipoToken::Symbol, QStringLiteral(";"))) {
+    if (!consume(TipoToken::Symbol, ";")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("letStatement"));
+    fecharTag("letStatement");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileIf()
 {
-    abrirTag(QStringLiteral("ifStatement"));
+    abrirTag("ifStatement");
 
     // Consome a palavra-chave "if".
-    if (!consume(TipoToken::Keyword, QStringLiteral("if"))) {
+    if (!consume(TipoToken::Keyword, "if")) {
         return false;
     }
 
     // Consome "(".
-    if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+    if (!consume(TipoToken::Symbol, "(")) {
         return false;
     }
 
@@ -517,12 +533,12 @@ bool AnalisadorSintatico::compileIf()
     }
 
     // Consome ")".
-    if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+    if (!consume(TipoToken::Symbol, ")")) {
         return false;
     }
 
     // Consome "{".
-    if (!consume(TipoToken::Symbol, QStringLiteral("{"))) {
+    if (!consume(TipoToken::Symbol, "{")) {
         return false;
     }
 
@@ -532,18 +548,18 @@ bool AnalisadorSintatico::compileIf()
     }
 
     // Consome "}".
-    if (!consume(TipoToken::Symbol, QStringLiteral("}"))) {
+    if (!consume(TipoToken::Symbol, "}")) {
         return false;
     }
 
     // Verifica a presença opcional de "else".
-    if (match(TipoToken::Keyword, QStringLiteral("else"))) {
+    if (match(TipoToken::Keyword, "else")) {
 
-        if (!consume(TipoToken::Keyword, QStringLiteral("else"))) {
+        if (!consume(TipoToken::Keyword, "else")) {
             return false;
         }
 
-        if (!consume(TipoToken::Symbol, QStringLiteral("{"))) {
+        if (!consume(TipoToken::Symbol, "{")) {
             return false;
         }
 
@@ -551,22 +567,22 @@ bool AnalisadorSintatico::compileIf()
             return false;
         }
 
-        if (!consume(TipoToken::Symbol, QStringLiteral("}"))) {
+        if (!consume(TipoToken::Symbol, "}")) {
             return false;
         }
     }
 
-    fecharTag(QStringLiteral("ifStatement"));
+    fecharTag("ifStatement");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileDo()
 {
-    abrirTag(QStringLiteral("doStatement"));
+    abrirTag("doStatement");
 
     // Consome a palavra-chave "do".
-    if (!consume(TipoToken::Keyword, QStringLiteral("do"))) {
+    if (!consume(TipoToken::Keyword, "do")) {
         return false;
     }
 
@@ -578,8 +594,8 @@ bool AnalisadorSintatico::compileDo()
 
     // Verifica se a chamada possui um qualificador:
     // ClassName.subroutineName ou varName.methodName.
-    if (match(TipoToken::Symbol, QStringLiteral("."))) {
-        if (!consume(TipoToken::Symbol, QStringLiteral("."))) {
+    if (match(TipoToken::Symbol, ".")) {
+        if (!consume(TipoToken::Symbol, ".")) {
             return false;
         }
 
@@ -589,7 +605,7 @@ bool AnalisadorSintatico::compileDo()
     }
 
     // Abre a lista de expressões.
-    if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+    if (!consume(TipoToken::Symbol, "(")) {
         return false;
     }
 
@@ -599,31 +615,31 @@ bool AnalisadorSintatico::compileDo()
     }
 
     // Fecha a chamada.
-    if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+    if (!consume(TipoToken::Symbol, ")")) {
         return false;
     }
 
     // Todo comando do termina com ponto e vírgula.
-    if (!consume(TipoToken::Symbol, QStringLiteral(";"))) {
+    if (!consume(TipoToken::Symbol, ";")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("doStatement"));
+    fecharTag("doStatement");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileWhile()
 {
-    abrirTag(QStringLiteral("whileStatement"));
+    abrirTag("whileStatement");
 
     // Consome a palavra-chave "while".
-    if (!consume(TipoToken::Keyword, QStringLiteral("while"))) {
+    if (!consume(TipoToken::Keyword, "while")) {
         return false;
     }
 
     // Consome "(".
-    if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+    if (!consume(TipoToken::Symbol, "(")) {
         return false;
     }
 
@@ -633,12 +649,12 @@ bool AnalisadorSintatico::compileWhile()
     }
 
     // Consome ")".
-    if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+    if (!consume(TipoToken::Symbol, ")")) {
         return false;
     }
 
     // Consome "{".
-    if (!consume(TipoToken::Symbol, QStringLiteral("{"))) {
+    if (!consume(TipoToken::Symbol, "{")) {
         return false;
     }
 
@@ -648,90 +664,90 @@ bool AnalisadorSintatico::compileWhile()
     }
 
     // Consome "}".
-    if (!consume(TipoToken::Symbol, QStringLiteral("}"))) {
+    if (!consume(TipoToken::Symbol, "}")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("whileStatement"));
+    fecharTag("whileStatement");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileReturn()
 {
-    abrirTag(QStringLiteral("returnStatement"));
+    abrirTag("returnStatement");
 
     // Consome a palavra-chave "return".
-    if (!consume(TipoToken::Keyword, QStringLiteral("return"))) {
+    if (!consume(TipoToken::Keyword, "return")) {
         return false;
     }
 
     // A expressão de retorno é opcional.
-    if (!match(TipoToken::Symbol, QStringLiteral(";"))) {
+    if (!match(TipoToken::Symbol, ";")) {
         if (!compileExpression()) {
             return false;
         }
     }
 
     // Todo comando return termina com ponto e vírgula.
-    if (!consume(TipoToken::Symbol, QStringLiteral(";"))) {
+    if (!consume(TipoToken::Symbol, ";")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("returnStatement"));
+    fecharTag("returnStatement");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileStatements()
 {
-    abrirTag(QStringLiteral("statements"));
+    abrirTag("statements");
 
-    while (match(TipoToken::Keyword, QStringLiteral("let"))
-           || match(TipoToken::Keyword, QStringLiteral("if"))
-           || match(TipoToken::Keyword, QStringLiteral("while"))
-           || match(TipoToken::Keyword, QStringLiteral("do"))
-           || match(TipoToken::Keyword, QStringLiteral("return"))) {
+    while (match(TipoToken::Keyword, "let")
+           || match(TipoToken::Keyword, "if")
+           || match(TipoToken::Keyword, "while")
+           || match(TipoToken::Keyword, "do")
+           || match(TipoToken::Keyword, "return")) {
 
-        if (match(TipoToken::Keyword, QStringLiteral("let"))) {
+        if (match(TipoToken::Keyword, "let")) {
             if (!compileLet()) {
                 return false;
             }
-        } else if (match(TipoToken::Keyword, QStringLiteral("if"))) {
+        } else if (match(TipoToken::Keyword, "if")) {
             if (!compileIf()) {
                 return false;
             }
-        } else if (match(TipoToken::Keyword, QStringLiteral("while"))) {
+        } else if (match(TipoToken::Keyword, "while")) {
             if (!compileWhile()) {
                 return false;
             }
-        } else if (match(TipoToken::Keyword, QStringLiteral("do"))) {
+        } else if (match(TipoToken::Keyword, "do")) {
             if (!compileDo()) {
                 return false;
             }
-        } else if (match(TipoToken::Keyword, QStringLiteral("return"))) {
+        } else if (match(TipoToken::Keyword, "return")) {
             if (!compileReturn()) {
                 return false;
             }
         }
     }
 
-    fecharTag(QStringLiteral("statements"));
+    fecharTag("statements");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileSubroutineBody()
 {
-    abrirTag(QStringLiteral("subroutineBody"));
+    abrirTag("subroutineBody");
 
     // '{'
-    if (!consume(TipoToken::Symbol, QStringLiteral("{"))) {
+    if (!consume(TipoToken::Symbol, "{")) {
         return false;
     }
 
     // varDec*
-    while (match(TipoToken::Keyword, QStringLiteral("var"))) {
+    while (match(TipoToken::Keyword, "var")) {
         if (!compileVarDec()) {
             return false;
         }
@@ -742,28 +758,28 @@ bool AnalisadorSintatico::compileSubroutineBody()
     }
 
     // '}'
-    if (!consume(TipoToken::Symbol, QStringLiteral("}"))) {
+    if (!consume(TipoToken::Symbol, "}")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("subroutineBody"));
+    fecharTag("subroutineBody");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileVarDec()
 {
-    abrirTag(QStringLiteral("varDec"));
+    abrirTag("varDec");
 
     // 'var'
-    if (!consume(TipoToken::Keyword, QStringLiteral("var"))) {
+    if (!consume(TipoToken::Keyword, "var")) {
         return false;
     }
 
     // type: 'int' | 'char' | 'boolean' | className
-    if (match(TipoToken::Keyword, QStringLiteral("int"))
-        || match(TipoToken::Keyword, QStringLiteral("char"))
-        || match(TipoToken::Keyword, QStringLiteral("boolean"))) {
+    if (match(TipoToken::Keyword, "int")
+        || match(TipoToken::Keyword, "char")
+        || match(TipoToken::Keyword, "boolean")) {
 
         const Token *token = tokenAtual();
         adicionarTokenXML(*token);
@@ -776,7 +792,7 @@ bool AnalisadorSintatico::compileVarDec()
         advance();
 
     } else {
-        erro = QStringLiteral(
+        erro = (
             "Erro sintático: esperado um tipo válido na declaração de variável local.");
         return false;
     }
@@ -787,9 +803,9 @@ bool AnalisadorSintatico::compileVarDec()
     }
 
     // (',' varName)*
-    while (match(TipoToken::Symbol, QStringLiteral(","))) {
+    while (match(TipoToken::Symbol, ",")) {
 
-        if (!consume(TipoToken::Symbol, QStringLiteral(","))) {
+        if (!consume(TipoToken::Symbol, ",")) {
             return false;
         }
 
@@ -799,39 +815,39 @@ bool AnalisadorSintatico::compileVarDec()
     }
 
     // ';'
-    if (!consume(TipoToken::Symbol, QStringLiteral(";"))) {
+    if (!consume(TipoToken::Symbol, ";")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("varDec"));
+    fecharTag("varDec");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileSubroutine()
 {
-    abrirTag(QStringLiteral("subroutineDec"));
+    abrirTag("subroutineDec");
 
     // ('constructor' | 'function' | 'method')
-    if (match(TipoToken::Keyword, QStringLiteral("constructor"))
-        || match(TipoToken::Keyword, QStringLiteral("function"))
-        || match(TipoToken::Keyword, QStringLiteral("method"))) {
+    if (match(TipoToken::Keyword, "constructor")
+        || match(TipoToken::Keyword, "function")
+        || match(TipoToken::Keyword, "method")) {
 
         const Token *token = tokenAtual();
         adicionarTokenXML(*token);
         advance();
 
     } else {
-        erro = QStringLiteral(
+        erro = (
             "Erro sintático: esperado 'constructor', 'function' ou 'method'.");
         return false;
     }
 
     // ('void' | type)
-    if (match(TipoToken::Keyword, QStringLiteral("void"))
-        || match(TipoToken::Keyword, QStringLiteral("int"))
-        || match(TipoToken::Keyword, QStringLiteral("char"))
-        || match(TipoToken::Keyword, QStringLiteral("boolean"))) {
+    if (match(TipoToken::Keyword, "void")
+        || match(TipoToken::Keyword, "int")
+        || match(TipoToken::Keyword, "char")
+        || match(TipoToken::Keyword, "boolean")) {
 
         const Token *token = tokenAtual();
         adicionarTokenXML(*token);
@@ -844,7 +860,7 @@ bool AnalisadorSintatico::compileSubroutine()
         advance();
 
     } else {
-        erro = QStringLiteral(
+        erro = (
             "Erro sintático: esperado um tipo de retorno válido.");
         return false;
     }
@@ -855,7 +871,7 @@ bool AnalisadorSintatico::compileSubroutine()
     }
 
     // '('
-    if (!consume(TipoToken::Symbol, QStringLiteral("("))) {
+    if (!consume(TipoToken::Symbol, "(")) {
         return false;
     }
 
@@ -865,7 +881,7 @@ bool AnalisadorSintatico::compileSubroutine()
     }
 
     // ')'
-    if (!consume(TipoToken::Symbol, QStringLiteral(")"))) {
+    if (!consume(TipoToken::Symbol, ")")) {
         return false;
     }
 
@@ -874,22 +890,22 @@ bool AnalisadorSintatico::compileSubroutine()
         return false;
     }
 
-    fecharTag(QStringLiteral("subroutineDec"));
+    fecharTag("subroutineDec");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileParameterList()
 {
-    abrirTag(QStringLiteral("parameterList"));
+    abrirTag("parameterList");
 
     // Uma lista de parâmetros pode estar vazia.
-    if (!match(TipoToken::Symbol, QStringLiteral(")"))) {
+    if (!match(TipoToken::Symbol, ")")) {
 
         // type: 'int' | 'char' | 'boolean' | className
-        if (match(TipoToken::Keyword, QStringLiteral("int"))
-            || match(TipoToken::Keyword, QStringLiteral("char"))
-            || match(TipoToken::Keyword, QStringLiteral("boolean"))) {
+        if (match(TipoToken::Keyword, "int")
+            || match(TipoToken::Keyword, "char")
+            || match(TipoToken::Keyword, "boolean")) {
 
             const Token *token = tokenAtual();
             adicionarTokenXML(*token);
@@ -902,7 +918,7 @@ bool AnalisadorSintatico::compileParameterList()
             advance();
 
         } else {
-            erro = QStringLiteral(
+            erro = (
                 "Erro sintático: esperado um tipo válido na lista de parâmetros.");
             return false;
         }
@@ -913,15 +929,15 @@ bool AnalisadorSintatico::compileParameterList()
         }
 
         // (',' type varName)*
-        while (match(TipoToken::Symbol, QStringLiteral(","))) {
+        while (match(TipoToken::Symbol, ",")) {
 
-            if (!consume(TipoToken::Symbol, QStringLiteral(","))) {
+            if (!consume(TipoToken::Symbol, ",")) {
                 return false;
             }
 
-            if (match(TipoToken::Keyword, QStringLiteral("int"))
-                || match(TipoToken::Keyword, QStringLiteral("char"))
-                || match(TipoToken::Keyword, QStringLiteral("boolean"))) {
+            if (match(TipoToken::Keyword, "int")
+                || match(TipoToken::Keyword, "char")
+                || match(TipoToken::Keyword, "boolean")) {
 
                 const Token *token = tokenAtual();
                 adicionarTokenXML(*token);
@@ -934,7 +950,7 @@ bool AnalisadorSintatico::compileParameterList()
                 advance();
 
             } else {
-                erro = QStringLiteral(
+                erro = (
                     "Erro sintático: esperado um tipo válido após a vírgula.");
                 return false;
             }
@@ -945,17 +961,17 @@ bool AnalisadorSintatico::compileParameterList()
         }
     }
 
-    fecharTag(QStringLiteral("parameterList"));
+    fecharTag("parameterList");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileClass()
 {
-    abrirTag(QStringLiteral("class"));
+    abrirTag("class");
 
     // 'class'
-    if (!consume(TipoToken::Keyword, QStringLiteral("class"))) {
+    if (!consume(TipoToken::Keyword, "class")) {
         return false;
     }
 
@@ -965,33 +981,33 @@ bool AnalisadorSintatico::compileClass()
     }
 
     // '{'
-    if (!consume(TipoToken::Symbol, QStringLiteral("{"))) {
+    if (!consume(TipoToken::Symbol, "{")) {
         return false;
     }
 
     // classVarDec*
-    while (match(TipoToken::Keyword, QStringLiteral("static"))
-           || match(TipoToken::Keyword, QStringLiteral("field"))) {
+    while (match(TipoToken::Keyword, "static")
+           || match(TipoToken::Keyword, "field")) {
         if (!compileClassVarDec()) {
             return false;
         }
     }
 
     // subroutineDec*
-    while (match(TipoToken::Keyword, QStringLiteral("constructor"))
-           || match(TipoToken::Keyword, QStringLiteral("function"))
-           || match(TipoToken::Keyword, QStringLiteral("method"))) {
+    while (match(TipoToken::Keyword, "constructor")
+           || match(TipoToken::Keyword, "function")
+           || match(TipoToken::Keyword, "method")) {
         if (!compileSubroutine()) {
             return false;
         }
     }
 
     // '}'
-    if (!consume(TipoToken::Symbol, QStringLiteral("}"))) {
+    if (!consume(TipoToken::Symbol, "}")) {
         return false;
     }
 
-    fecharTag(QStringLiteral("class"));
+    fecharTag("class");
 
     return true;
 }
@@ -1002,8 +1018,8 @@ bool AnalisadorSintatico::analisar()
     xml.clear();
     erro.clear();
 
-    if (tokens.isEmpty()) {
-        erro = QStringLiteral(
+    if (tokens.empty()) {
+        erro = (
             "Erro sintático: não há tokens para analisar.");
 
         return false;
@@ -1018,12 +1034,13 @@ bool AnalisadorSintatico::analisar()
     if (tokenAtual() != nullptr) {
         const Token *token = tokenAtual();
 
-        erro = QStringLiteral(
-                   "Erro sintático na linha %1, coluna %2: "
-                   "token inesperado '%3' após o fim da classe.")
-                   .arg(token->linha)
-                   .arg(token->coluna)
-                   .arg(QString::fromStdString(token->lexema));
+        erro = "Erro sintático na linha "
+               + std::to_string(token->linha)
+               + ", coluna "
+               + std::to_string(token->coluna)
+               + ": token inesperado '"
+               + token->lexema
+               + "' após o fim da classe.";
 
         xml.clear();
         return false;
@@ -1032,12 +1049,12 @@ bool AnalisadorSintatico::analisar()
     return true;
 }
 
-QString AnalisadorSintatico::obterXML() const
+std::string AnalisadorSintatico::obterXML() const
 {
     return xml;
 }
 
-QString AnalisadorSintatico::obterErro() const
+std::string AnalisadorSintatico::obterErro() const
 {
     return erro;
 }

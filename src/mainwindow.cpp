@@ -142,12 +142,12 @@ void MainWindow::on_pushButton_selecionar_clicked()
     ui->pushButton_exportar->setEnabled(true);
 
     // Executa a análise sintática após o sucesso da análise léxica.
-    AnalisadorSintatico analisadorSintatico(tokens);
+    AnalisadorSintatico analisadorSintatico(tokensAnalisados);
     const bool sintaxeValida = analisadorSintatico.analisar();
 
     // Armazena o XML e a mensagem de erro da análise sintática.
-    xmlSintatico = analisadorSintatico.obterXML();
-    const QString erroSintatico = analisadorSintatico.obterErro();
+    xmlSintatico = QString::fromStdString(analisadorSintatico.obterXML());
+    const QString erroSintatico = QString::fromStdString(analisadorSintatico.obterErro());
 
     if (sintaxeValida) {
         ui->tabWidget->setTabEnabled(1, true);

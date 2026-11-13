@@ -41,7 +41,7 @@ bool AnalisadorSintatico::match(
 
     return token != nullptr
            && token->tipo == tipo
-           && token->lexema == lexema;
+           && QString::fromStdString(token->lexema) == lexema;
 }
 
 void AnalisadorSintatico::advance()
@@ -105,7 +105,7 @@ bool AnalisadorSintatico::consume(
                    .arg(token->linha)
                    .arg(token->coluna)
                    .arg(lexema)
-                   .arg(token->lexema);
+                   .arg(QString::fromStdString(token->lexema));
     } else {
         erro = QStringLiteral(
                    "Erro sintático: esperado '%1', "
@@ -165,7 +165,7 @@ void AnalisadorSintatico::adicionarTokenXML(const Token &token)
     }
 
     xml += QStringLiteral("<%1> %2 </%1>\n")
-               .arg(nomeTag, escaparXML(token.lexema));
+               .arg(nomeTag, escaparXML(QString::fromStdString(token.lexema)));
 }
 
 bool AnalisadorSintatico::compileClassVarDec()
@@ -429,7 +429,7 @@ bool AnalisadorSintatico::compileTerm()
                        "termo inválido, encontrado '%3'.")
                        .arg(token->linha)
                        .arg(token->coluna)
-                       .arg(token->lexema);
+                       .arg(QString::fromStdString(token->lexema));
         } else {
             erro = QStringLiteral(
                 "Erro sintático: esperado um termo, "
@@ -1023,7 +1023,7 @@ bool AnalisadorSintatico::analisar()
                    "token inesperado '%3' após o fim da classe.")
                    .arg(token->linha)
                    .arg(token->coluna)
-                   .arg(token->lexema);
+                   .arg(QString::fromStdString(token->lexema));
 
         xml.clear();
         return false;

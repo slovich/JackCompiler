@@ -54,7 +54,7 @@ bool AnalisadorLexico::analisar(
                               int colunaToken) {
         tokens.append(Token{
             tipo,
-            lexema,
+            lexema.toStdString(),
             linhaToken,
             colunaToken
         });

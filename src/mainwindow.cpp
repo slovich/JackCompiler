@@ -294,7 +294,7 @@ void MainWindow::gerarListaTokens()
             );
         modeloTokens->setItem(
             i, 3,
-            new QStandardItem(token.lexema)
+            new QStandardItem(QString::fromStdString(token.lexema))
             );
     }
     // Ajusta a apresentação das colunas.
@@ -406,7 +406,7 @@ void MainWindow::on_pushButton_exportar_clicked()
         xml.writeStartElement(categoria);
 
         // O formato nand2tetris exige espaços ao redor do lexema.
-        xml.writeCharacters(" " + token.lexema + " ");
+        xml.writeCharacters(" " + QString::fromStdString(token.lexema) + " ");
 
         xml.writeEndElement();
     }

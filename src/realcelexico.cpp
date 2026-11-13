@@ -42,7 +42,7 @@ void RealceLexico::highlightBlock(const QString& texto)
         }
 
         QTextCharFormat formato;
-        int comprimento = token.lexema.size();
+        int comprimento = QString::fromStdString(token.lexema).size();
 
         switch (token.tipo) {
         case TipoToken::Keyword:

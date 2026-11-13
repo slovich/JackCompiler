@@ -4,7 +4,7 @@
 #include <QString>
 #include <QVector>
 #include <QStringList>
-#include "Token.h"
+#include "token.h"
 
 class AnalisadorLexico
 {

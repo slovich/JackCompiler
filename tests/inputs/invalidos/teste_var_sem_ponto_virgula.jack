@@ -1,0 +1,7 @@
+class TesteDeclaracao {
+    function void main() {
+        var int x
+        let x = 10;
+        return;
+    }
+}

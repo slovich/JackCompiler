@@ -1,0 +1,7 @@
+class TesteOrdem {
+    function void main() {
+        do Output.println();
+        var int x;
+        return;
+    }
+}

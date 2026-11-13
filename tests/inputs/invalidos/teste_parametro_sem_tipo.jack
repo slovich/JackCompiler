@@ -1,0 +1,5 @@
+class TesteParametros {
+    function void executar(x) {
+        return;
+    }
+}

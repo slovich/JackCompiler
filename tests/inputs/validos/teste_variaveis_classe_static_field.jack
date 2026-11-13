@@ -1,0 +1,5 @@
+class Main {
+    static int contador;
+    field int x, y;
+    field boolean ativo;
+}

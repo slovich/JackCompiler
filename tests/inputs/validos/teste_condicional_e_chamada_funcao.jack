@@ -1,0 +1,13 @@
+// Arquivo: Main.jack
+class Main {
+    function void main() {
+        var int x;
+        let x = 10;
+        
+        if (x > 5) {
+            do Output.printString("Teste bem sucedido!");
+        }
+        
+        return;
+    }
+}

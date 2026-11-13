@@ -1,0 +1,14 @@
+class TesteIfElse {
+    function void main() {
+        var int x;
+        let x = 10;
+
+        if (x > 5) {
+            do Output.println();
+        } else {
+            do Output.printInt(x);
+        }
+
+        return;
+    }
+}

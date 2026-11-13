@@ -1,0 +1,88 @@
+class TesteCompleto {
+
+    static int contador;
+    field int tamanho;
+    field Array valores;
+
+    constructor TesteCompleto novo(int n) {
+        let tamanho = n;
+        let contador = 0;
+        return this;
+    }
+
+    function void main() {
+        var int i;
+        var int resultado;
+        var boolean encontrado;
+
+        let i = 0;
+        let resultado = 0;
+        let encontrado = false;
+	let resultado = -10;
+	let resultado = -resultado;
+	let resultado = ~(resultado);
+	let resultado = -(resultado + 1);
+	let resultado = Math.multiply(3, 4);
+	let resultado = Math.multiply(resultado, 2);
+
+        // Expressões com constantes e operadores binários.
+        let resultado = 10 + 20 * 3;
+        let resultado = resultado - 5;
+        let resultado = resultado / 2;
+        let encontrado = resultado > 10;
+        let encontrado = resultado < 100;
+        let encontrado = resultado = 20;
+        let encontrado = encontrado & true;
+        let encontrado = encontrado | false;
+
+        // Acesso a elementos de arrays.
+        let valores[i] = resultado;
+        let resultado = valores[i];
+        let resultado = valores[i + 1];
+        let valores[i + 1] = resultado * 2;
+
+        // Condicional simples.
+        if (resultado > 0) {
+            let contador = contador + 1;
+            do Output.printString("Resultado positivo");
+        }
+
+        // Condicional com else.
+        if (encontrado) {
+            let resultado = resultado + 1;
+        } else {
+            let resultado = resultado - 1;
+        }
+
+        // Laço while.
+        while (i < tamanho) {
+            let valores[i] = i;
+            let i = i + 1;
+        }
+
+        // Chamadas de sub-rotinas.
+        do Output.printString("Teste concluido");
+        do Output.println();
+        do Output.printInt(resultado);
+
+        // Constantes de palavra-chave.
+        let encontrado = true;
+        let encontrado = false;
+        let valores[i] = null;
+
+        // Retorno sem expressão.
+        return;
+    }
+
+    method int obterValor(int indice) {
+        var int valor;
+
+        let valor = valores[indice];
+
+        if (valor > 0) {
+            return valor;
+        } else {
+            return 0;
+        }
+    }
+}

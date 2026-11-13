@@ -1,0 +1,25 @@
+class ErroLexico {
+    field int contador;
+    field boolean ativo;
+
+    constructor ErroLexico new() {
+        let contador = 0;
+        let ativo = true;
+        return this;
+    }
+
+    method void incrementar() {
+        var int valor;
+        let valor = contador + 1;
+        let contador = valor;
+
+        let @contador = 10;
+
+        do Output.printInt(contador);
+        return;
+    }
+
+    method int obterContador() {
+        return contador;
+    }
+}

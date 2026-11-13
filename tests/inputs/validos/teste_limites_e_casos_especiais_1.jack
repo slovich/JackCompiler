@@ -1,0 +1,6 @@
+class TesteChamada {
+    function void main() {
+        do Output.println();
+        return;
+    }
+}

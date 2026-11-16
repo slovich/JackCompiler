@@ -1,3 +1,6 @@
 #include "jack/ast/expressionnode.h"
 
-ExpressionNode::ExpressionNode() {}
+ExpressionNode::ExpressionNode(const SourceSpan& sourceSpan)
+    : ASTNode(sourceSpan)
+{
+}

@@ -1,10 +1,25 @@
-#ifndef PARAMETERNODE_H
-#define PARAMETERNODE_H
+#ifndef JACK_AST_PARAMETERNODE_H
+#define JACK_AST_PARAMETERNODE_H
 
-class ParameterNode
-{
+#include "jack/ast/astnode.h"
+
+#include <string>
+
+class ParameterNode : public ASTNode {
 public:
-    ParameterNode();
+    ParameterNode(
+        const SourceSpan& sourceSpan,
+        const std::string& type,
+        const std::string& name
+        );
+
+    const std::string& obterTipo() const;
+
+    const std::string& obterNome() const;
+
+private:
+    std::string type;
+    std::string name;
 };
 
-#endif // PARAMETERNODE_H
+#endif // JACK_AST_PARAMETERNODE_H

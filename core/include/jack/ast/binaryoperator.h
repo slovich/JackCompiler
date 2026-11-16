@@ -1,4 +1,16 @@
-#ifndef BINARYOPERATOR_H
-#define BINARYOPERATOR_H
+#ifndef JACK_AST_BINARYOPERATOR_H
+#define JACK_AST_BINARYOPERATOR_H
 
-#endif // BINARYOPERATOR_H
+enum class BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    And,
+    Or,
+    Equal,
+    LessThan,
+    GreaterThan
+};
+
+#endif // JACK_AST_BINARYOPERATOR_H

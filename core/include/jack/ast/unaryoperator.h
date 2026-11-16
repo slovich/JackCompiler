@@ -1,4 +1,9 @@
-#ifndef UNARYOPERATOR_H
-#define UNARYOPERATOR_H
+#ifndef JACK_AST_UNARYOPERATOR_H
+#define JACK_AST_UNARYOPERATOR_H
 
-#endif // UNARYOPERATOR_H
+enum class UnaryOperator {
+    Negate,
+    Not
+};
+
+#endif // JACK_AST_UNARYOPERATOR_H

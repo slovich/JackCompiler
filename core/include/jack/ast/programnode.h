@@ -12,6 +12,8 @@ class ProgramNode : public ASTNode {
 public:
     explicit ProgramNode(const SourceSpan& sourceSpan);
 
+    ~ProgramNode() override;
+
     void adicionarClasse(std::unique_ptr<ClassNode> classe);
 
     const std::vector<std::unique_ptr<ClassNode>>& obterClasses() const;

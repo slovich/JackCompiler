@@ -1,10 +1,19 @@
-#ifndef INTEGERLITERALNODE_H
-#define INTEGERLITERALNODE_H
+#ifndef JACK_AST_INTEGERLITERALNODE_H
+#define JACK_AST_INTEGERLITERALNODE_H
 
-class IntegerLiteralNode
-{
+#include "jack/ast/expressionnode.h"
+
+class IntegerLiteralNode : public ExpressionNode {
 public:
-    IntegerLiteralNode();
+    IntegerLiteralNode(
+        const SourceSpan& sourceSpan,
+        int value
+        );
+
+    int obterValor() const;
+
+private:
+    int value;
 };
 
-#endif // INTEGERLITERALNODE_H
+#endif // JACK_AST_INTEGERLITERALNODE_H

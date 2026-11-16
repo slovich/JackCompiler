@@ -1,10 +1,20 @@
-#ifndef KEYWORDCONSTANTNODE_H
-#define KEYWORDCONSTANTNODE_H
+#ifndef JACK_AST_KEYWORDCONSTANTNODE_H
+#define JACK_AST_KEYWORDCONSTANTNODE_H
 
-class KeywordConstantNode
-{
+#include "jack/ast/expressionnode.h"
+#include "jack/ast/keywordconstant.h"
+
+class KeywordConstantNode : public ExpressionNode {
 public:
-    KeywordConstantNode();
+    KeywordConstantNode(
+        const SourceSpan& sourceSpan,
+        KeywordConstant value
+        );
+
+    KeywordConstant obterValor() const;
+
+private:
+    KeywordConstant value;
 };
 
-#endif // KEYWORDCONSTANTNODE_H
+#endif // JACK_AST_KEYWORDCONSTANTNODE_H

@@ -1,3 +1,6 @@
 #include "jack/ast/statementnode.h"
 
-StatementNode::StatementNode() {}
+StatementNode::StatementNode(const SourceSpan& sourceSpan)
+    : ASTNode(sourceSpan)
+{
+}

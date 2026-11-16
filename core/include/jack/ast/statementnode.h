@@ -1,10 +1,13 @@
-#ifndef STATEMENTNODE_H
-#define STATEMENTNODE_H
+#ifndef JACK_AST_STATEMENTNODE_H
+#define JACK_AST_STATEMENTNODE_H
 
-class StatementNode
-{
+#include "jack/ast/astnode.h"
+
+class StatementNode : public ASTNode {
 public:
-    StatementNode();
+    explicit StatementNode(const SourceSpan& sourceSpan);
+
+    ~StatementNode() override = default;
 };
 
-#endif // STATEMENTNODE_H
+#endif // JACK_AST_STATEMENTNODE_H

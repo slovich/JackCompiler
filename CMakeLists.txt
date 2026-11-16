@@ -13,13 +13,71 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Xml)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Xml)
 
+
 set(PROJECT_SOURCES
 
+    # AST - Infraestrutura
     core/src/ast/sourcespan.cpp
     core/include/jack/ast/sourcespan.h
     core/src/ast/astnode.cpp
     core/include/jack/ast/astnode.h
 
+    # AST - Estrutura principal
+    core/src/ast/programnode.cpp
+    core/include/jack/ast/programnode.h
+    core/src/ast/classnode.cpp
+    core/include/jack/ast/classnode.h
+
+    # AST - Declarações
+    core/src/ast/variabledeclarationnode.cpp
+    core/include/jack/ast/variabledeclarationnode.h
+    core/src/ast/subroutinedeclarationnode.cpp
+    core/include/jack/ast/subroutinedeclarationnode.h
+    core/src/ast/parameternode.cpp
+    core/include/jack/ast/parameternode.h
+
+    # AST - Statements
+    core/src/ast/statementnode.cpp
+    core/include/jack/ast/statementnode.h
+    core/src/ast/letstatementnode.cpp
+    core/include/jack/ast/letstatementnode.h
+    core/src/ast/ifstatementnode.cpp
+    core/include/jack/ast/ifstatementnode.h
+    core/src/ast/whilestatementnode.cpp
+    core/include/jack/ast/whilestatementnode.h
+    core/src/ast/dostatementnode.cpp
+    core/include/jack/ast/dostatementnode.h
+    core/src/ast/returnstatementnode.cpp
+    core/include/jack/ast/returnstatementnode.h
+
+    # AST - Expressions
+    core/src/ast/expressionnode.cpp
+    core/include/jack/ast/expressionnode.h
+    core/src/ast/variablereferencenode.cpp
+    core/include/jack/ast/variablereferencenode.h
+    core/src/ast/arrayaccessnode.cpp
+    core/include/jack/ast/arrayaccessnode.h
+    core/src/ast/binaryexpressionnode.cpp
+    core/include/jack/ast/binaryexpressionnode.h
+    core/src/ast/unaryexpressionnode.cpp
+    core/include/jack/ast/unaryexpressionnode.h
+    core/src/ast/integerliteralnode.cpp
+    core/include/jack/ast/integerliteralnode.h
+    core/src/ast/stringliteralnode.cpp
+    core/include/jack/ast/stringliteralnode.h
+    core/src/ast/keywordconstantnode.cpp
+    core/include/jack/ast/keywordconstantnode.h
+    core/src/ast/subroutinecallnode.cpp
+    core/include/jack/ast/subroutinecallnode.h
+
+    # AST - Enums
+    core/include/jack/ast/variablekind.h
+    core/include/jack/ast/subroutinekind.h
+    core/include/jack/ast/binaryoperator.h
+    core/include/jack/ast/unaryoperator.h
+    core/include/jack/ast/keywordconstant.h
+
+    # Aplicação Qt
     src/main.cpp
     src/mainwindow.cpp
     src/mainwindow.h
@@ -46,6 +104,7 @@ set(PROJECT_SOURCES
 
     assets.qrc
 )
+
 
 if(QT_VERSION_MAJOR GREATER_EQUAL 6)
     qt_add_executable(compilador

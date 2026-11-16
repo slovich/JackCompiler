@@ -1,0 +1,4 @@
+#ifndef BINARYOPERATOR_H
+#define BINARYOPERATOR_H
+
+#endif // BINARYOPERATOR_H

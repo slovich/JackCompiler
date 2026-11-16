@@ -1,0 +1,4 @@
+#ifndef UNARYOPERATOR_H
+#define UNARYOPERATOR_H
+
+#endif // UNARYOPERATOR_H

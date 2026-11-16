@@ -1,0 +1,4 @@
+#ifndef VARIABLEKIND_H
+#define VARIABLEKIND_H
+
+#endif // VARIABLEKIND_H

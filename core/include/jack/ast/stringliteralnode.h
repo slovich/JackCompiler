@@ -1,10 +1,21 @@
-#ifndef STRINGLITERALNODE_H
-#define STRINGLITERALNODE_H
+#ifndef JACK_AST_STRINGLITERALNODE_H
+#define JACK_AST_STRINGLITERALNODE_H
 
-class StringLiteralNode
-{
+#include "jack/ast/expressionnode.h"
+
+#include <string>
+
+class StringLiteralNode : public ExpressionNode {
 public:
-    StringLiteralNode();
+    StringLiteralNode(
+        const SourceSpan& sourceSpan,
+        const std::string& value
+        );
+
+    const std::string& obterValor() const;
+
+private:
+    std::string value;
 };
 
-#endif // STRINGLITERALNODE_H
+#endif // JACK_AST_STRINGLITERALNODE_H

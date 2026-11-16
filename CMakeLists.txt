@@ -14,6 +14,12 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Xml)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Xml)
 
 set(PROJECT_SOURCES
+
+    core/src/ast/sourcespan.cpp
+    core/include/jack/ast/sourcespan.h
+    core/src/ast/astnode.cpp
+    core/include/jack/ast/astnode.h
+
     src/main.cpp
     src/mainwindow.cpp
     src/mainwindow.h
@@ -61,6 +67,10 @@ endif()
 target_link_libraries(compilador PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Xml
+)
+
+target_include_directories(compilador PRIVATE
+    core/include
 )
 
 if(QT_VERSION VERSION_LESS 6.1.0)

@@ -1,10 +1,28 @@
-#ifndef LETSTATEMENTNODE_H
-#define LETSTATEMENTNODE_H
+#ifndef JACK_AST_LETSTATEMENTNODE_H
+#define JACK_AST_LETSTATEMENTNODE_H
 
-class LetStatementNode
-{
+#include "jack/ast/statementnode.h"
+
+#include <memory>
+
+class ExpressionNode;
+
+class LetStatementNode : public StatementNode {
 public:
-    LetStatementNode();
+    LetStatementNode(
+        const SourceSpan& sourceSpan,
+        std::unique_ptr<ExpressionNode> target,
+        std::unique_ptr<ExpressionNode> value
+        );
+
+    ~LetStatementNode() override;
+
+    const ExpressionNode& obterAlvo() const;
+    const ExpressionNode& obterValor() const;
+
+private:
+    std::unique_ptr<ExpressionNode> target;
+    std::unique_ptr<ExpressionNode> value;
 };
 
-#endif // LETSTATEMENTNODE_H
+#endif // JACK_AST_LETSTATEMENTNODE_H

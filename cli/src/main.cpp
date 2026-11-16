@@ -1,28 +1,10 @@
-#include "jack/cli/terminal.h"
-
-#include <iostream>
-#include <string>
+#include "jack/cli/application.h"
 
 int main()
 {
-    jack::cli::Terminal terminal;
+    jack::cli::Application application;
 
-    terminal.limparTela();
-    terminal.exibirTitulo("Jack Compiler - CLI");
-
-    terminal.exibirInformacao("Teste de mensagem informativa.");
-    terminal.exibirSucesso("Teste de mensagem de sucesso.");
-    terminal.exibirAviso("Teste de mensagem de aviso.");
-    terminal.exibirErro("Teste de mensagem de erro.");
-
-    terminal.exibirSeparador();
-
-    std::string nome = terminal.lerTexto("Digite seu nome: ");
-
-    terminal.exibirTexto(
-        "Olá, " + nome + "!\n",
-        jack::cli::Terminal::Cor::Verde
-        );
+    application.executar();
 
     return 0;
 }

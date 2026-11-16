@@ -120,6 +120,8 @@ if(QT_VERSION_MAJOR GREATER_EQUAL 6)
     qt_add_executable(compilador
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+
+
     )
 else()
     if(ANDROID)
@@ -155,6 +157,10 @@ add_executable(jack_cli
     cli/src/main.cpp
     cli/src/terminal.cpp
     cli/include/jack/cli/terminal.h
+    cli/include/jack/cli/menu.h
+    cli/src/menu.cpp
+    cli/include/jack/cli/application.h
+    cli/src/application.cpp
 )
 
 set_target_properties(jack_cli PROPERTIES

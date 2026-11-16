@@ -1,10 +1,21 @@
-#ifndef VARIABLEREFERENCENODE_H
-#define VARIABLEREFERENCENODE_H
+#ifndef JACK_AST_VARIABLEREFERENCENODE_H
+#define JACK_AST_VARIABLEREFERENCENODE_H
 
-class VariableReferenceNode
-{
+#include "jack/ast/expressionnode.h"
+
+#include <string>
+
+class VariableReferenceNode : public ExpressionNode {
 public:
-    VariableReferenceNode();
+    VariableReferenceNode(
+        const SourceSpan& sourceSpan,
+        const std::string& name
+        );
+
+    const std::string& obterNome() const;
+
+private:
+    std::string name;
 };
 
-#endif // VARIABLEREFERENCENODE_H
+#endif // JACK_AST_VARIABLEREFERENCENODE_H

@@ -13,8 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Xml)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Xml)
 
-
-set(PROJECT_SOURCES
+set(CORE_SOURCES
 
     # AST - Infraestrutura
     core/src/ast/sourcespan.cpp
@@ -76,6 +75,17 @@ set(PROJECT_SOURCES
     core/include/jack/ast/binaryoperator.h
     core/include/jack/ast/unaryoperator.h
     core/include/jack/ast/keywordconstant.h
+)
+
+add_library(jack_core STATIC
+    ${CORE_SOURCES}
+)
+
+target_include_directories(jack_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/include
+)
+
+set(PROJECT_SOURCES
 
     # Aplicação Qt
     src/main.cpp
@@ -124,12 +134,9 @@ else()
 endif()
 
 target_link_libraries(compilador PRIVATE
+    jack_core
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Xml
-)
-
-target_include_directories(compilador PRIVATE
-    core/include
 )
 
 if(QT_VERSION VERSION_LESS 6.1.0)
@@ -142,6 +149,26 @@ set_target_properties(compilador PROPERTIES
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
+)
+
+add_executable(jack_cli
+    cli/src/main.cpp
+    cli/src/terminal.cpp
+    cli/include/jack/cli/terminal.h
+)
+
+set_target_properties(jack_cli PROPERTIES
+    AUTOMOC OFF
+    AUTOUIC OFF
+    AUTORCC OFF
+)
+
+target_include_directories(jack_cli PRIVATE
+    cli/include
+)
+
+target_link_libraries(jack_cli PRIVATE
+    jack_core
 )
 
 include(GNUInstallDirs)

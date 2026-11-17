@@ -15,6 +15,7 @@
 #include <QXmlStreamWriter>
 #include <Qstack>
 #include <QDomDocument>
+#include <memory>
 #include "dialogsobre.h"
 #include "analisadorlexico.h"
 #include "analisadorsintatico.h"
@@ -52,6 +53,7 @@ private:
     void gerarArvoreSintatica();
     Ui::MainWindow *ui;
     QString system_root, caminhoArquivoAnalisado, codigoFonteAnalisado, xmlSintatico;
+    std::unique_ptr<ProgramNode> programaSintatico;
     QStringList ext;
     QFileSystemModel *dirmodel, *filemodel;
     QVector<Token> tokens;

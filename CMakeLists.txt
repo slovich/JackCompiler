@@ -75,10 +75,17 @@ set(CORE_SOURCES
     core/include/jack/ast/binaryoperator.h
     core/include/jack/ast/unaryoperator.h
     core/include/jack/ast/keywordconstant.h
+
+    # XML
+    core/include/jack/xml/geradorxmlsintatico.h
+    core/src/xml/geradorxmlsintatico.cpp
 )
 
 add_library(jack_core STATIC
     ${CORE_SOURCES}
+    core/include/jack/parser/syntaxresult.h
+    core/include/jack/ast/parenthesizedexpressionnode.h
+    core/src/ast/parenthesizedexpressionnode.cpp
 )
 
 target_include_directories(jack_core PUBLIC

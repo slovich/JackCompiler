@@ -1,5 +1,8 @@
+#include <utility>
+
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "jack/xml/geradorxmlsintatico.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -81,6 +84,16 @@ void MainWindow::on_pushButton_selecionar_clicked()
 {
     ui->tabWidget->setTabEnabled(1, false);
     ui->pushButton_exportar_xml_sintatico->setEnabled(false);
+
+    // Limpa os dados da análise anterior.
+    programaSintatico.reset();
+    xmlSintatico.clear();
+    ui->textEdit_xml->clear();
+
+    if (modeloArvoreSintatica != nullptr) {
+        modeloArvoreSintatica->clear();
+    }
+
     QModelIndex indice = ui->listView_file->currentIndex();
     if (!indice.isValid()) {
         QMessageBox::warning(
@@ -142,44 +155,48 @@ void MainWindow::on_pushButton_selecionar_clicked()
     ui->pushButton_exportar->setEnabled(true);
 
     // Executa a análise sintática após o sucesso da análise léxica.
-    AnalisadorSintatico analisadorSintatico(tokensAnalisados);
-    const bool sintaxeValida = analisadorSintatico.analisar();
+    AnalisadorSintatico analisadorSintatico(
+        tokensAnalisados,
+        codigoFonte.toStdString()
+        );
 
-    // Armazena o XML e a mensagem de erro da análise sintática.
-    xmlSintatico = QString::fromStdString(analisadorSintatico.obterXML());
-    const QString erroSintatico = QString::fromStdString(analisadorSintatico.obterErro());
+    SyntaxResult resultadoSintatico = analisadorSintatico.analisar();
 
-    if (sintaxeValida) {
-        ui->tabWidget->setTabEnabled(1, true);
+    if (auto* sucesso = std::get_if<SyntaxSuccess>(&resultadoSintatico)) {
+        // Transfere a propriedade da AST para a interface.
+        programaSintatico = std::move(sucesso->program);
 
-        // Habilita a exportação do XML sintático válido.
-        ui->pushButton_exportar_xml_sintatico->setEnabled(true);
+        // Gera o XML sintático a partir da AST.
+        GeradorXmlSintatico geradorXmlSintatico;
+        const std::string xmlGerado = geradorXmlSintatico.gerar(*programaSintatico);
 
-        // Exibe o XML produzido pelo analisador sintático.
-        QDomDocument documentoXml;
-        QString erro;
-        int linha;
-        int coluna;
+        // Converte o resultado para QString e atualiza a interface.
+        xmlSintatico = QString::fromStdString(xmlGerado);
+        ui->textEdit_xml->setPlainText(xmlSintatico);
 
-        if (documentoXml.setContent(xmlSintatico, &erro, &linha, &coluna)) {
-            ui->textEdit_xml->setPlainText(documentoXml.toString(4));
-        } else {
-            ui->textEdit_xml->setPlainText(xmlSintatico);
-        }
-        ui->textEdit_xml->setReadOnly(true);
-        // Gera a representação hierárquica da árvore sintática.
+        // Atualiza a representação em árvore do XML.
         gerarArvoreSintatica();
+
+        // Habilita a aba sintática e a exportação do XML.
+        ui->tabWidget->setTabEnabled(1, true);
+        ui->pushButton_exportar_xml_sintatico->setEnabled(true);
 
         QMessageBox::information(
             this,
-            "Análise concluída",
-            QString("Análise léxica: concluída com sucesso.\n"
-                    "Análise sintática: concluída com sucesso.\n"
-                    "Quantidade de tokens: %1")
-                .arg(tokens.size())
+            "Análise Sintática",
+            "Análise sintática concluída com sucesso!"
             );
+
     } else {
+        const auto& falha = std::get<SyntaxFailure>(resultadoSintatico);
+
+        // Descarta qualquer AST de uma análise anterior.
+        programaSintatico.reset();
+
         ui->tabWidget->setTabEnabled(1, false);
+
+        const QString erroSintatico =
+            QString::fromStdString(falha.message);
 
         QMessageBox::warning(
             this,

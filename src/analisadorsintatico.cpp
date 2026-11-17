@@ -1,8 +1,13 @@
 #include "analisadorsintatico.h"
 
-AnalisadorSintatico::AnalisadorSintatico(const std::vector<Token>& tokens)
+AnalisadorSintatico::AnalisadorSintatico(
+    const std::vector<Token>& tokens,
+    const std::string& codigoFonte
+    )
     : tokens(tokens),
-    indiceAtual(0)
+    codigoFonte(codigoFonte),
+    indiceAtual(0),
+    erroSintatico(std::nullopt)
 {
 }
 
@@ -52,15 +57,70 @@ void AnalisadorSintatico::advance()
     }
 }
 
+SourceSpan AnalisadorSintatico::obterSourceSpanToken(
+    const Token& token) const
+{
+    const std::size_t colunaInicial =
+        static_cast<std::size_t>(token.coluna) + 1;
+
+    std::size_t tamanhoToken = token.lexema.size();
+
+    // O analisador léxico remove as aspas do lexema.
+    // Elas precisam ser consideradas na localização original.
+    if (token.tipo == TipoToken::StringConstant) {
+        tamanhoToken += 2;
+    }
+
+    return SourceSpan{
+        static_cast<std::size_t>(token.linha),
+        colunaInicial,
+        static_cast<std::size_t>(token.linha),
+        colunaInicial + tamanhoToken - 1
+    };
+}
+
+SourceSpan AnalisadorSintatico::obterPosicaoAtual() const
+{
+    const Token* token = tokenAtual();
+
+    if (token != nullptr) {
+        return obterSourceSpanToken(*token);
+    }
+
+    std::size_t linha = 1;
+    std::size_t coluna = 1;
+
+    for (char caractere : codigoFonte) {
+        if (caractere == '\n') {
+            ++linha;
+            coluna = 1;
+        } else {
+            ++coluna;
+        }
+    }
+
+    return SourceSpan{
+        linha,
+        coluna,
+        linha,
+        coluna
+    };
+}
+
+void AnalisadorSintatico::registrarErro(
+    const std::string& mensagem)
+{
+    if (!erroSintatico.has_value()) {
+        erroSintatico = SyntaxFailure{
+            mensagem,
+            obterPosicaoAtual()
+        };
+    }
+}
+
 bool AnalisadorSintatico::consume(TipoToken tipo)
 {
     if (match(tipo)) {
-        const Token* token = tokenAtual();
-
-        if (token != nullptr) {
-            adicionarTokenXML(*token);
-        }
-
         advance();
         return true;
     }
@@ -68,15 +128,13 @@ bool AnalisadorSintatico::consume(TipoToken tipo)
     const Token* token = tokenAtual();
 
     if (token != nullptr) {
-        erro = "Erro sintático na linha "
-               + std::to_string(token->linha)
-               + ", coluna "
-               + std::to_string(token->coluna)
-               + ": token inesperado '"
-               + token->lexema
-               + "'.";
+        registrarErro(
+            "Token inesperado '" + token->lexema + "'."
+            );
     } else {
-        erro = "Erro sintático: fim inesperado dos tokens.";
+        registrarErro(
+            "Fim inesperado do arquivo."
+            );
     }
 
     return false;
@@ -87,12 +145,6 @@ bool AnalisadorSintatico::consume(
     const std::string& lexema)
 {
     if (match(tipo, lexema)) {
-        const Token* token = tokenAtual();
-
-        if (token != nullptr) {
-            adicionarTokenXML(*token);
-        }
-
         advance();
         return true;
     }
@@ -100,163 +152,128 @@ bool AnalisadorSintatico::consume(
     const Token* token = tokenAtual();
 
     if (token != nullptr) {
-        erro = "Erro sintático na linha "
-               + std::to_string(token->linha)
-               + ", coluna "
-               + std::to_string(token->coluna)
-               + ": esperado '"
-               + lexema
-               + "', encontrado '"
-               + token->lexema
-               + "'.";
+        registrarErro(
+            "Esperado '" + lexema
+            + "', encontrado '" + token->lexema + "'."
+            );
     } else {
-        erro = "Erro sintático: esperado '"
-               + lexema
-               + "', mas o arquivo terminou.";
+        registrarErro(
+            "Esperado '" + lexema
+            + "', mas o arquivo terminou."
+            );
     }
 
     return false;
 }
 
-void AnalisadorSintatico::abrirTag(const std::string& tag)
-{
-    xml += "<" + tag + ">\n";
-}
-
-void AnalisadorSintatico::fecharTag(const std::string& tag)
-{
-    xml += "</" + tag + ">\n";
-}
-
-std::string AnalisadorSintatico::escaparXML(const std::string& texto) const
-{
-    std::string resultado;
-    resultado.reserve(texto.size());
-
-    for (char caractere : texto) {
-        switch (caractere) {
-        case '&':
-            resultado += "&amp;";
-            break;
-        case '<':
-            resultado += "&lt;";
-            break;
-        case '>':
-            resultado += "&gt;";
-            break;
-        case '"':
-            resultado += "&quot;";
-            break;
-        default:
-            resultado += caractere;
-            break;
-        }
-    }
-
-    return resultado;
-}
-
-void AnalisadorSintatico::adicionarTokenXML(const Token& token)
-{
-    std::string nomeTag;
-
-    switch (token.tipo) {
-    case TipoToken::Keyword:
-        nomeTag = "keyword";
-        break;
-    case TipoToken::Symbol:
-        nomeTag = "symbol";
-        break;
-    case TipoToken::IntegerConstant:
-        nomeTag = "integerConstant";
-        break;
-    case TipoToken::StringConstant:
-        nomeTag = "stringConstant";
-        break;
-    case TipoToken::Identifier:
-        nomeTag = "identifier";
-        break;
-    }
-
-    xml += "<" + nomeTag + "> "
-           + escaparXML(token.lexema)
-           + " </" + nomeTag + ">\n";
-}
-
 bool AnalisadorSintatico::compileClassVarDec()
 {
-    abrirTag("classVarDec");
+    // Registra o início da declaração.
+    const Token* tokenInicial = tokenAtual();
 
-    // ('static' | 'field')
-    if (!match(TipoToken::Keyword, "static")
-        && !match(TipoToken::Keyword, "field")) {
-        erro = (
-            "Erro sintático: esperada a palavra-chave 'static' ou 'field'.");
+    if (tokenInicial == nullptr) {
+        registrarErro("Declaração de variável de classe inesperada.");
         return false;
     }
 
-    const Token *token = tokenAtual();
-    adicionarTokenXML(*token);
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenInicial);
+
+    // Identifica o tipo de variável: static ou field.
+    VariableKind kind;
+
+    if (match(TipoToken::Keyword, "static")) {
+        kind = VariableKind::Static;
+    } else if (match(TipoToken::Keyword, "field")) {
+        kind = VariableKind::Field;
+    } else {
+        registrarErro(
+            "Esperada a palavra-chave 'static' ou 'field'."
+            );
+        return false;
+    }
+
     advance();
 
-    // type: 'int' | 'char' | 'boolean' | className
+    // Captura o tipo: int, char, boolean ou nome de classe.
+    std::string tipo;
+
     if (match(TipoToken::Keyword, "int")
         || match(TipoToken::Keyword, "char")
-        || match(TipoToken::Keyword, "boolean")) {
+        || match(TipoToken::Keyword, "boolean")
+        || match(TipoToken::Identifier)) {
 
-        token = tokenAtual();
-        adicionarTokenXML(*token);
-        advance();
-
-    } else if (match(TipoToken::Identifier)) {
-
-        token = tokenAtual();
-        adicionarTokenXML(*token);
+        tipo = tokenAtual()->lexema;
         advance();
 
     } else {
-        erro = (
-            "Erro sintático: esperado um tipo válido na declaração de variável de classe.");
+        registrarErro(
+            "Esperado um tipo válido na declaração de variável de classe."
+            );
         return false;
     }
 
-    // varName
-    if (!consume(TipoToken::Identifier)) {
-        return false;
-    }
+    // Captura os nomes das variáveis.
+    std::vector<std::string> nomes;
 
-    // (',' varName)*
-    while (match(TipoToken::Symbol, ",")) {
-        if (!consume(TipoToken::Symbol, ",")) {
-            return false;
-        }
-
+    while (true) {
         if (!consume(TipoToken::Identifier)) {
             return false;
         }
+
+        nomes.push_back(tokenAtual()->lexema);
+        advance();
+
+        if (!match(TipoToken::Symbol, ",")) {
+            break;
+        }
+
+        if (!consume(TipoToken::Symbol, ",")) {
+            return false;
+        }
     }
 
-    // ';'
-    if (!consume(TipoToken::Symbol, ";")) {
+    // Registra a posição final da declaração.
+    if (!match(TipoToken::Symbol, ";")) {
+        registrarErro("Esperado ';' ao final da declaração de variável de classe.");
         return false;
     }
 
-    fecharTag("classVarDec");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenAtual());
+
+    advance();
+
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    // Constrói o nó da declaração.
+    auto declaracao = std::make_unique<VariableDeclarationNode>(
+        sourceSpan,
+        kind,
+        tipo,
+        nomes
+        );
+
+    variaveisClasseAtuais.push_back(std::move(declaracao));
 
     return true;
 }
 
-bool AnalisadorSintatico::compileExpression()
+std::unique_ptr<ExpressionNode> AnalisadorSintatico::compileExpression()
 {
-    abrirTag("expression");
+    // Analisa o primeiro termo da expressão.
+    std::unique_ptr<ExpressionNode> expressaoEsquerda = compileTerm();
 
-    // O primeiro termo é obrigatório.
-    if (!compileTerm()) {
-        return false;
+    if (!expressaoEsquerda) {
+        return nullptr;
     }
 
-    // Operadores binários da gramática Jack:
-    // + - * / & | < > =
+    // Operadores binários da gramática Jack.
     while (match(TipoToken::Symbol, "+")
            || match(TipoToken::Symbol, "-")
            || match(TipoToken::Symbol, "*")
@@ -267,442 +284,843 @@ bool AnalisadorSintatico::compileExpression()
            || match(TipoToken::Symbol, ">")
            || match(TipoToken::Symbol, "=")) {
 
-        // Consome e registra o operador.
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
+        const Token* tokenOperador = tokenAtual();
+
+        BinaryOperator operador;
+
+        if (tokenOperador->lexema == "+") {
+            operador = BinaryOperator::Add;
+        } else if (tokenOperador->lexema == "-") {
+            operador = BinaryOperator::Subtract;
+        } else if (tokenOperador->lexema == "*") {
+            operador = BinaryOperator::Multiply;
+        } else if (tokenOperador->lexema == "/") {
+            operador = BinaryOperator::Divide;
+        } else if (tokenOperador->lexema == "&") {
+            operador = BinaryOperator::And;
+        } else if (tokenOperador->lexema == "|") {
+            operador = BinaryOperator::Or;
+        } else if (tokenOperador->lexema == "<") {
+            operador = BinaryOperator::LessThan;
+        } else if (tokenOperador->lexema == ">") {
+            operador = BinaryOperator::GreaterThan;
+        } else {
+            operador = BinaryOperator::Equal;
+        }
+
         advance();
 
-        // Cada operador binário deve ser seguido por outro termo.
-        if (!compileTerm()) {
-            return false;
+        // Analisa o termo à direita do operador.
+        std::unique_ptr<ExpressionNode> expressaoDireita = compileTerm();
+
+        if (!expressaoDireita) {
+            return nullptr;
         }
+
+        // O novo nó abrange os dois operandos.
+        const SourceSpan spanEsquerda =
+            expressaoEsquerda->obterSourceSpan();
+
+        const SourceSpan spanDireita =
+            expressaoDireita->obterSourceSpan();
+
+        const SourceSpan sourceSpan{
+            spanEsquerda.startLine,
+            spanEsquerda.startColumn,
+            spanDireita.endLine,
+            spanDireita.endColumn
+        };
+
+        expressaoEsquerda = std::make_unique<BinaryExpressionNode>(
+            sourceSpan,
+            std::move(expressaoEsquerda),
+            operador,
+            std::move(expressaoDireita)
+            );
     }
 
-    fecharTag("expression");
-
-    return true;
+    return expressaoEsquerda;
 }
 
-bool AnalisadorSintatico::compileExpressionList()
+
+std::vector<std::unique_ptr<ExpressionNode>>
+AnalisadorSintatico::compileExpressionList()
 {
-    abrirTag("expressionList");
+    std::vector<std::unique_ptr<ExpressionNode>> argumentos;
 
     // A lista pode estar vazia.
-    if (!match(TipoToken::Symbol, ")")) {
-
-        // Analisa a primeira expressão.
-        if (!compileExpression()) {
-            return false;
-        }
-
-        // Analisa as expressões seguintes, separadas por vírgulas.
-        while (match(TipoToken::Symbol, ",")) {
-
-            if (!consume(TipoToken::Symbol, ",")) {
-                return false;
-            }
-
-            if (!compileExpression()) {
-                return false;
-            }
-        }
+    if (match(TipoToken::Symbol, ")")) {
+        return argumentos;
     }
 
-    fecharTag("expressionList");
+    // Analisa a primeira expressão.
+    std::unique_ptr<ExpressionNode> expressao = compileExpression();
 
-    return true;
+    if (!expressao) {
+        return {};
+    }
+
+    argumentos.push_back(std::move(expressao));
+
+    // Analisa as expressões seguintes, separadas por vírgulas.
+    while (match(TipoToken::Symbol, ",")) {
+
+        advance();
+
+        expressao = compileExpression();
+
+        if (!expressao) {
+            return {};
+        }
+
+        argumentos.push_back(std::move(expressao));
+    }
+
+    return argumentos;
 }
 
-bool AnalisadorSintatico::compileTerm()
-{
-    abrirTag("term");
 
+std::unique_ptr<ExpressionNode> AnalisadorSintatico::compileTerm()
+{
     // integerConstant
     if (match(TipoToken::IntegerConstant)) {
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
+        const Token* token = tokenAtual();
+        const SourceSpan sourceSpan = obterSourceSpanToken(*token);
+
+        const std::string lexema = token->lexema;
+        const int valor = std::stoi(lexema);
+
         advance();
 
-        // stringConstant
-    } else if (match(TipoToken::StringConstant)) {
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
+        return std::make_unique<IntegerLiteralNode>(
+            sourceSpan,
+            valor,
+            lexema
+            );
+    }
+
+    // stringConstant
+    if (match(TipoToken::StringConstant)) {
+        const Token* token = tokenAtual();
+        const SourceSpan sourceSpan = obterSourceSpanToken(*token);
+
+        const std::string valor = token->lexema;
+
         advance();
 
-        // keywordConstant: true, false, null, this
-    } else if (match(TipoToken::Keyword, "true")
-               || match(TipoToken::Keyword, "false")
-               || match(TipoToken::Keyword, "null")
-               || match(TipoToken::Keyword, "this")) {
+        return std::make_unique<StringLiteralNode>(
+            sourceSpan,
+            valor
+            );
+    }
 
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
-        advance();
+    // keywordConstant: true, false, null, this
+    if (match(TipoToken::Keyword, "true")
+        || match(TipoToken::Keyword, "false")
+        || match(TipoToken::Keyword, "null")
+        || match(TipoToken::Keyword, "this")) {
 
-        // unaryOp term: '-' term ou '~' term
-    } else if (match(TipoToken::Symbol, "-")
-               || match(TipoToken::Symbol, "~")) {
+        const Token* token = tokenAtual();
+        const SourceSpan sourceSpan = obterSourceSpanToken(*token);
 
-        // Registra e consome o operador unário.
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
-        advance();
+        KeywordConstant valor;
 
-        // O operador deve ser seguido por outro termo.
-        if (!compileTerm()) {
-            return false;
+        if (token->lexema == "true") {
+            valor = KeywordConstant::True;
+        } else if (token->lexema == "false") {
+            valor = KeywordConstant::False;
+        } else if (token->lexema == "null") {
+            valor = KeywordConstant::Null;
+        } else {
+            valor = KeywordConstant::This;
         }
 
-        // '(' expression ')'
-    } else if (match(TipoToken::Symbol, "(")) {
+        advance();
 
-        if (!consume(TipoToken::Symbol, "(")) {
-            return false;
+        return std::make_unique<KeywordConstantNode>(
+            sourceSpan,
+            valor
+            );
+    }
+
+    // unaryOp term: '-' term ou '~' term
+    if (match(TipoToken::Symbol, "-")
+        || match(TipoToken::Symbol, "~")) {
+
+        const Token* tokenOperador = tokenAtual();
+        const SourceSpan spanOperador =
+            obterSourceSpanToken(*tokenOperador);
+
+        const UnaryOperator operador =
+            tokenOperador->lexema == "-"
+                ? UnaryOperator::Negate
+                : UnaryOperator::Not;
+
+        advance();
+
+        std::unique_ptr<ExpressionNode> operando = compileTerm();
+
+        if (!operando) {
+            return nullptr;
         }
 
-        if (!compileExpression()) {
-            return false;
+        const SourceSpan spanOperando =
+            operando->obterSourceSpan();
+
+        const SourceSpan sourceSpan{
+            spanOperador.startLine,
+            spanOperador.startColumn,
+            spanOperando.endLine,
+            spanOperando.endColumn
+        };
+
+        return std::make_unique<UnaryExpressionNode>(
+            sourceSpan,
+            operador,
+            std::move(operando)
+            );
+    }
+
+    // '(' expression ')'
+    if (match(TipoToken::Symbol, "(")) {
+
+        const Token* tokenAbertura = tokenAtual();
+        const SourceSpan spanAbertura =
+            obterSourceSpanToken(*tokenAbertura);
+
+        advance();
+
+        std::unique_ptr<ExpressionNode> expressao =
+            compileExpression();
+
+        if (!expressao) {
+            return nullptr;
         }
+
+        const Token* tokenFechamento = tokenAtual();
 
         if (!consume(TipoToken::Symbol, ")")) {
-            return false;
+            return nullptr;
         }
 
-        // identifier: varName, varName '[' expression ']',
-        // subroutineName '(' expressionList ')' ou
-        // (className | varName) '.' subroutineName '(' expressionList ')'
-    } else if (match(TipoToken::Identifier)) {
+        const SourceSpan spanFechamento =
+            obterSourceSpanToken(*tokenFechamento);
 
-        // Registra e consome o primeiro identificador.
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
+        const SourceSpan sourceSpan{
+            spanAbertura.startLine,
+            spanAbertura.startColumn,
+            spanFechamento.endLine,
+            spanFechamento.endColumn
+        };
+
+        return std::make_unique<ParenthesizedExpressionNode>(
+            sourceSpan,
+            std::move(expressao)
+            );
+    }
+
+    // identifier
+    if (match(TipoToken::Identifier)) {
+
+        const Token* tokenIdentificador = tokenAtual();
+
+        const std::string nome = tokenIdentificador->lexema;
+        const SourceSpan spanIdentificador =
+            obterSourceSpanToken(*tokenIdentificador);
+
         advance();
 
         // Caso 1: acesso a elemento de array.
         if (match(TipoToken::Symbol, "[")) {
 
-            if (!consume(TipoToken::Symbol, "[")) {
-                return false;
+            advance();
+
+            std::unique_ptr<ExpressionNode> indice =
+                compileExpression();
+
+            if (!indice) {
+                return nullptr;
             }
 
-            if (!compileExpression()) {
-                return false;
-            }
+            const Token* tokenFechamento = tokenAtual();
 
             if (!consume(TipoToken::Symbol, "]")) {
-                return false;
+                return nullptr;
             }
 
-            // Caso 2: chamada qualificada, como Math.multiply(...).
-        } else if (match(TipoToken::Symbol, ".")) {
+            const SourceSpan spanFechamento =
+                obterSourceSpanToken(*tokenFechamento);
 
-            if (!consume(TipoToken::Symbol, ".")) {
-                return false;
-            }
+            const SourceSpan sourceSpan{
+                spanIdentificador.startLine,
+                spanIdentificador.startColumn,
+                spanFechamento.endLine,
+                spanFechamento.endColumn
+            };
 
-            if (!consume(TipoToken::Identifier)) {
-                return false;
-            }
-
-            if (!consume(TipoToken::Symbol, "(")) {
-                return false;
-            }
-
-            if (!compileExpressionList()) {
-                return false;
-            }
-
-            if (!consume(TipoToken::Symbol, ")")) {
-                return false;
-            }
-
-            // Caso 3: chamada direta, como obterValor(...).
-        } else if (match(TipoToken::Symbol, "(")) {
-
-            if (!consume(TipoToken::Symbol, "(")) {
-                return false;
-            }
-
-            if (!compileExpressionList()) {
-                return false;
-            }
-
-            if (!consume(TipoToken::Symbol, ")")) {
-                return false;
-            }
-
+            return std::make_unique<ArrayAccessNode>(
+                sourceSpan,
+                nome,
+                std::move(indice)
+                );
         }
 
-    } else {
-        // Se nenhuma alternativa da regra term corresponder ao token atual,
-        // a expressão contém um termo inválido.
-        const Token *token = tokenAtual();
+        // Caso 2: chamada qualificada, como Math.multiply(...).
+        if (match(TipoToken::Symbol, ".")) {
 
-        if (token != nullptr) {
-            erro = "Erro sintático na linha "
-                   + std::to_string(token->linha)
-                   + ", coluna "
-                   + std::to_string(token->coluna)
-                   + ": termo inválido, encontrado '"
-                   + token->lexema
-                   + "'.";
-        } else {
-            erro = (
-                "Erro sintático: esperado um termo, "
-                "mas o arquivo terminou.");
+            advance();
+
+            if (!match(TipoToken::Identifier)) {
+                registrarErro("Nome da subrotina esperado.");
+                return nullptr;
+            }
+
+            const Token* tokenSubrotina = tokenAtual();
+
+            const std::string nomeSubrotina =
+                tokenSubrotina->lexema;
+
+            advance();
+
+            if (!consume(TipoToken::Symbol, "(")) {
+                return nullptr;
+            }
+
+            std::vector<std::unique_ptr<ExpressionNode>> argumentos =
+                compileExpressionList();
+
+            if (erroSintatico) {
+                return nullptr;
+            }
+
+            const Token* tokenFechamento = tokenAtual();
+
+            if (!consume(TipoToken::Symbol, ")")) {
+                return nullptr;
+            }
+
+            const SourceSpan spanFechamento =
+                obterSourceSpanToken(*tokenFechamento);
+
+            const SourceSpan sourceSpan{
+                spanIdentificador.startLine,
+                spanIdentificador.startColumn,
+                spanFechamento.endLine,
+                spanFechamento.endColumn
+            };
+
+            auto chamada = std::make_unique<SubroutineCallNode>(
+                sourceSpan,
+                std::optional<std::string>{nome},
+                nomeSubrotina
+                );
+
+            for (auto& argumento : argumentos) {
+                chamada->adicionarArgumento(std::move(argumento));
+            }
+
+            return chamada;
         }
 
-        return false;
+        // Caso 3: chamada direta, como obterValor(...).
+        if (match(TipoToken::Symbol, "(")) {
+
+            advance();
+
+            std::vector<std::unique_ptr<ExpressionNode>> argumentos =
+                compileExpressionList();
+
+            if (erroSintatico) {
+                return nullptr;
+            }
+
+            const Token* tokenFechamento = tokenAtual();
+
+            if (!consume(TipoToken::Symbol, ")")) {
+                return nullptr;
+            }
+
+            const SourceSpan spanFechamento =
+                obterSourceSpanToken(*tokenFechamento);
+
+            const SourceSpan sourceSpan{
+                spanIdentificador.startLine,
+                spanIdentificador.startColumn,
+                spanFechamento.endLine,
+                spanFechamento.endColumn
+            };
+
+            auto chamada = std::make_unique<SubroutineCallNode>(
+                sourceSpan,
+                std::nullopt,
+                nome
+                );
+
+            for (auto& argumento : argumentos) {
+                chamada->adicionarArgumento(std::move(argumento));
+            }
+
+            return chamada;
+        }
+
+        // Caso 4: referência simples a variável.
+        return std::make_unique<VariableReferenceNode>(
+            spanIdentificador,
+            nome
+            );
     }
 
-    fecharTag("term");
-
-    return true;
+    registrarErro("Termo inválido.");
+    return nullptr;
 }
 
-bool AnalisadorSintatico::compileLet()
+std::unique_ptr<LetStatementNode> AnalisadorSintatico::compileLet()
 {
-    abrirTag("letStatement");
+    const Token* tokenLet = tokenAtual();
+    const SourceSpan spanInicial = obterSourceSpanToken(*tokenLet);
 
     // 'let'
     if (!consume(TipoToken::Keyword, "let")) {
-        return false;
+        return nullptr;
     }
 
     // varName
-    if (!consume(TipoToken::Identifier)) {
-        return false;
+    if (!match(TipoToken::Identifier)) {
+        registrarErro("Nome de variável esperado.");
+        return nullptr;
     }
+
+    const Token* tokenVariavel = tokenAtual();
+
+    const std::string nomeVariavel = tokenVariavel->lexema;
+    const SourceSpan spanVariavel =
+        obterSourceSpanToken(*tokenVariavel);
+
+    advance();
+
+    std::unique_ptr<ExpressionNode> alvo;
 
     // Acesso opcional a elemento de array: varName[expression]
     if (match(TipoToken::Symbol, "[")) {
 
-        // '['
-        if (!consume(TipoToken::Symbol, "[")) {
-            return false;
+        advance();
+
+        std::unique_ptr<ExpressionNode> indice =
+            compileExpression();
+
+        if (!indice) {
+            return nullptr;
         }
 
-        // expression: índice do array
-        if (!compileExpression()) {
-            return false;
-        }
+        const Token* tokenFechamento = tokenAtual();
 
-        // ']'
         if (!consume(TipoToken::Symbol, "]")) {
-            return false;
+            return nullptr;
         }
+
+        const SourceSpan spanFechamento =
+            obterSourceSpanToken(*tokenFechamento);
+
+        const SourceSpan spanAlvo{
+            spanVariavel.startLine,
+            spanVariavel.startColumn,
+            spanFechamento.endLine,
+            spanFechamento.endColumn
+        };
+
+        alvo = std::make_unique<ArrayAccessNode>(
+            spanAlvo,
+            nomeVariavel,
+            std::move(indice)
+            );
+
+    } else {
+
+        alvo = std::make_unique<VariableReferenceNode>(
+            spanVariavel,
+            nomeVariavel
+            );
     }
 
     // '='
     if (!consume(TipoToken::Symbol, "=")) {
-        return false;
+        return nullptr;
     }
 
     // expression: valor atribuído
-    if (!compileExpression()) {
-        return false;
+    std::unique_ptr<ExpressionNode> valor =
+        compileExpression();
+
+    if (!valor) {
+        return nullptr;
     }
 
     // ';'
+    const Token* tokenPontoVirgula = tokenAtual();
+
     if (!consume(TipoToken::Symbol, ";")) {
-        return false;
+        return nullptr;
     }
 
-    fecharTag("letStatement");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenPontoVirgula);
 
-    return true;
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    return std::make_unique<LetStatementNode>(
+        sourceSpan,
+        std::move(alvo),
+        std::move(valor)
+        );
 }
 
-bool AnalisadorSintatico::compileIf()
+
+std::unique_ptr<IfStatementNode> AnalisadorSintatico::compileIf()
 {
-    abrirTag("ifStatement");
+    const Token* tokenIf = tokenAtual();
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenIf);
 
     // Consome a palavra-chave "if".
     if (!consume(TipoToken::Keyword, "if")) {
-        return false;
+        return nullptr;
     }
 
     // Consome "(".
     if (!consume(TipoToken::Symbol, "(")) {
-        return false;
+        return nullptr;
     }
 
     // Analisa a condição.
-    if (!compileExpression()) {
-        return false;
+    auto condicao = compileExpression();
+
+    if (!condicao) {
+        return nullptr;
     }
 
     // Consome ")".
     if (!consume(TipoToken::Symbol, ")")) {
-        return false;
+        return nullptr;
     }
 
-    // Consome "{".
+    // Consome "{" do bloco then.
     if (!consume(TipoToken::Symbol, "{")) {
-        return false;
+        return nullptr;
     }
 
-    // Analisa os comandos dentro do bloco.
-    if (!compileStatements()) {
-        return false;
+    // Analisa as instruções do bloco then.
+    std::vector<std::unique_ptr<StatementNode>> instrucoesThen;
+
+    if (!compileStatements(instrucoesThen)) {
+        return nullptr;
     }
 
-    // Consome "}".
+    // Consome "}" do bloco then.
+    const Token* tokenFechamentoThen = tokenAtual();
+
     if (!consume(TipoToken::Symbol, "}")) {
-        return false;
+        return nullptr;
     }
 
-    // Verifica a presença opcional de "else".
-    if (match(TipoToken::Keyword, "else")) {
+    SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenFechamentoThen);
 
+    // Analisa o bloco else, caso exista.
+    std::vector<std::unique_ptr<StatementNode>> instrucoesElse;
+    bool possuiElse = false;
+
+    if (match(TipoToken::Keyword, "else")) {
         if (!consume(TipoToken::Keyword, "else")) {
-            return false;
+            return nullptr;
         }
 
         if (!consume(TipoToken::Symbol, "{")) {
-            return false;
+            return nullptr;
         }
 
-        if (!compileStatements()) {
-            return false;
+        possuiElse = true;
+
+        if (!compileStatements(instrucoesElse)) {
+            return nullptr;
         }
+
+        const Token* tokenFechamentoElse = tokenAtual();
 
         if (!consume(TipoToken::Symbol, "}")) {
-            return false;
+            return nullptr;
         }
+
+        spanFinal = obterSourceSpanToken(*tokenFechamentoElse);
     }
 
-    fecharTag("ifStatement");
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
 
-    return true;
+    auto ifStatement = std::make_unique<IfStatementNode>(
+        sourceSpan,
+        std::move(condicao)
+        );
+
+    if (possuiElse) {
+        ifStatement->definirPossuiElse();
+    }
+
+    for (auto& instrucao : instrucoesThen) {
+        ifStatement->adicionarInstrucaoThen(std::move(instrucao));
+    }
+
+    for (auto& instrucao : instrucoesElse) {
+        ifStatement->adicionarInstrucaoElse(std::move(instrucao));
+    }
+
+    return ifStatement;
 }
 
-bool AnalisadorSintatico::compileDo()
+
+std::unique_ptr<DoStatementNode> AnalisadorSintatico::compileDo()
 {
-    abrirTag("doStatement");
+    const Token* tokenDo = tokenAtual();
+    const SourceSpan spanInicial = obterSourceSpanToken(*tokenDo);
 
     // Consome a palavra-chave "do".
     if (!consume(TipoToken::Keyword, "do")) {
-        return false;
+        return nullptr;
     }
 
-    // Consome o primeiro identificador:
-    // nome da sub-rotina, classe ou variável.
-    if (!consume(TipoToken::Identifier)) {
-        return false;
+    // Primeiro identificador: nome da subrotina ou qualificador.
+    if (!match(TipoToken::Identifier)) {
+        registrarErro("Nome da subrotina esperado.");
+        return nullptr;
     }
 
-    // Verifica se a chamada possui um qualificador:
-    // ClassName.subroutineName ou varName.methodName.
+    const Token* tokenIdentificador = tokenAtual();
+
+    const std::string primeiroNome = tokenIdentificador->lexema;
+    const SourceSpan spanInicioChamada =
+        obterSourceSpanToken(*tokenIdentificador);
+
+    advance();
+
+    std::optional<std::string> qualificador;
+    std::string nomeSubrotina;
+
+    // Chamada qualificada: ClassName.subroutineName.
     if (match(TipoToken::Symbol, ".")) {
-        if (!consume(TipoToken::Symbol, ".")) {
-            return false;
+
+        advance();
+
+        if (!match(TipoToken::Identifier)) {
+            registrarErro("Nome da subrotina esperado após o qualificador.");
+            return nullptr;
         }
 
-        if (!consume(TipoToken::Identifier)) {
-            return false;
-        }
+        qualificador = primeiroNome;
+        nomeSubrotina = tokenAtual()->lexema;
+
+        advance();
+
+    } else {
+
+        // Chamada direta: subroutineName.
+        nomeSubrotina = primeiroNome;
     }
 
-    // Abre a lista de expressões.
+    // Abre a lista de argumentos.
     if (!consume(TipoToken::Symbol, "(")) {
-        return false;
+        return nullptr;
     }
 
-    // Analisa a lista de argumentos da chamada.
-    if (!compileExpressionList()) {
-        return false;
+    std::vector<std::unique_ptr<ExpressionNode>> argumentos =
+        compileExpressionList();
+
+    if (erroSintatico) {
+        return nullptr;
     }
 
     // Fecha a chamada.
+    const Token* tokenFechamentoChamada = tokenAtual();
+
     if (!consume(TipoToken::Symbol, ")")) {
-        return false;
+        return nullptr;
     }
+
+    const SourceSpan spanFechamentoChamada =
+        obterSourceSpanToken(*tokenFechamentoChamada);
 
     // Todo comando do termina com ponto e vírgula.
+    const Token* tokenPontoVirgula = tokenAtual();
+
     if (!consume(TipoToken::Symbol, ";")) {
-        return false;
+        return nullptr;
     }
 
-    fecharTag("doStatement");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenPontoVirgula);
 
-    return true;
+    // Intervalo da chamada de subrotina.
+    const SourceSpan spanSubrotina{
+        spanInicioChamada.startLine,
+        spanInicioChamada.startColumn,
+        spanFechamentoChamada.endLine,
+        spanFechamentoChamada.endColumn
+    };
+
+    // Intervalo completo da instrução do.
+    const SourceSpan spanChamada{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    // Constrói a chamada de subrotina.
+    auto chamada = std::make_unique<SubroutineCallNode>(
+        spanSubrotina,
+        qualificador,
+        nomeSubrotina
+        );
+
+    for (auto& argumento : argumentos) {
+        chamada->adicionarArgumento(std::move(argumento));
+    }
+
+    // Constrói a instrução do.
+    return std::make_unique<DoStatementNode>(
+        spanChamada,
+        std::move(chamada)
+        );
 }
 
-bool AnalisadorSintatico::compileWhile()
+
+std::unique_ptr<WhileStatementNode> AnalisadorSintatico::compileWhile()
 {
-    abrirTag("whileStatement");
+    const Token* tokenWhile = tokenAtual();
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenWhile);
 
     // Consome a palavra-chave "while".
     if (!consume(TipoToken::Keyword, "while")) {
-        return false;
+        return nullptr;
     }
 
     // Consome "(".
     if (!consume(TipoToken::Symbol, "(")) {
-        return false;
+        return nullptr;
     }
 
     // Analisa a condição do laço.
-    if (!compileExpression()) {
-        return false;
+    auto condicao = compileExpression();
+
+    if (!condicao) {
+        return nullptr;
     }
 
     // Consome ")".
     if (!consume(TipoToken::Symbol, ")")) {
-        return false;
+        return nullptr;
     }
 
     // Consome "{".
     if (!consume(TipoToken::Symbol, "{")) {
-        return false;
+        return nullptr;
     }
 
     // Analisa os comandos dentro do laço.
-    if (!compileStatements()) {
-        return false;
+    std::vector<std::unique_ptr<StatementNode>> instrucoes;
+
+    if (!compileStatements(instrucoes)) {
+        return nullptr;
     }
 
     // Consome "}".
+    const Token* tokenFechamento = tokenAtual();
+
     if (!consume(TipoToken::Symbol, "}")) {
-        return false;
+        return nullptr;
     }
 
-    fecharTag("whileStatement");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenFechamento);
 
-    return true;
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    auto whileStatement = std::make_unique<WhileStatementNode>(
+        sourceSpan,
+        std::move(condicao)
+        );
+
+    for (auto& instrucao : instrucoes) {
+        whileStatement->adicionarInstrucao(std::move(instrucao));
+    }
+
+    return whileStatement;
 }
 
-bool AnalisadorSintatico::compileReturn()
+
+std::unique_ptr<ReturnStatementNode> AnalisadorSintatico::compileReturn()
 {
-    abrirTag("returnStatement");
+    const Token* tokenReturn = tokenAtual();
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenReturn);
 
     // Consome a palavra-chave "return".
     if (!consume(TipoToken::Keyword, "return")) {
-        return false;
+        return nullptr;
     }
+
+    std::unique_ptr<ExpressionNode> expressao;
 
     // A expressão de retorno é opcional.
     if (!match(TipoToken::Symbol, ";")) {
-        if (!compileExpression()) {
-            return false;
+
+        expressao = compileExpression();
+
+        if (!expressao) {
+            return nullptr;
         }
     }
 
     // Todo comando return termina com ponto e vírgula.
+    const Token* tokenPontoVirgula = tokenAtual();
+
     if (!consume(TipoToken::Symbol, ";")) {
-        return false;
+        return nullptr;
     }
 
-    fecharTag("returnStatement");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenPontoVirgula);
 
-    return true;
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    return std::make_unique<ReturnStatementNode>(
+        sourceSpan,
+        std::move(expressao)
+        );
 }
 
-bool AnalisadorSintatico::compileStatements()
+bool AnalisadorSintatico::compileStatements(
+    std::vector<std::unique_ptr<StatementNode>>& instrucoes
+    )
 {
-    abrirTag("statements");
-
     while (match(TipoToken::Keyword, "let")
            || match(TipoToken::Keyword, "if")
            || match(TipoToken::Keyword, "while")
@@ -710,37 +1128,57 @@ bool AnalisadorSintatico::compileStatements()
            || match(TipoToken::Keyword, "return")) {
 
         if (match(TipoToken::Keyword, "let")) {
-            if (!compileLet()) {
+            auto instrucao = compileLet();
+
+            if (!instrucao) {
                 return false;
             }
+
+            instrucoes.push_back(std::move(instrucao));
+
         } else if (match(TipoToken::Keyword, "if")) {
-            if (!compileIf()) {
+            auto instrucao = compileIf();
+
+            if (!instrucao) {
                 return false;
             }
+
+            instrucoes.push_back(std::move(instrucao));
+
         } else if (match(TipoToken::Keyword, "while")) {
-            if (!compileWhile()) {
+            auto instrucao = compileWhile();
+
+            if (!instrucao) {
                 return false;
             }
+
+            instrucoes.push_back(std::move(instrucao));
+
         } else if (match(TipoToken::Keyword, "do")) {
-            if (!compileDo()) {
+            auto instrucao = compileDo();
+
+            if (!instrucao) {
                 return false;
             }
+
+            instrucoes.push_back(std::move(instrucao));
+
         } else if (match(TipoToken::Keyword, "return")) {
-            if (!compileReturn()) {
+            auto instrucao = compileReturn();
+
+            if (!instrucao) {
                 return false;
             }
+
+            instrucoes.push_back(std::move(instrucao));
         }
     }
-
-    fecharTag("statements");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileSubroutineBody()
 {
-    abrirTag("subroutineBody");
-
     // '{'
     if (!consume(TipoToken::Symbol, "{")) {
         return false;
@@ -753,7 +1191,8 @@ bool AnalisadorSintatico::compileSubroutineBody()
         }
     }
 
-    if (!compileStatements()) {
+    // statements
+    if (!compileStatements(instrucoesAtuais)) {
         return false;
     }
 
@@ -762,14 +1201,21 @@ bool AnalisadorSintatico::compileSubroutineBody()
         return false;
     }
 
-    fecharTag("subroutineBody");
-
     return true;
 }
 
 bool AnalisadorSintatico::compileVarDec()
 {
-    abrirTag("varDec");
+    // Registra o início da declaração.
+    const Token* tokenInicial = tokenAtual();
+
+    if (tokenInicial == nullptr) {
+        registrarErro("Declaração de variável local inesperada.");
+        return false;
+    }
+
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenInicial);
 
     // 'var'
     if (!consume(TipoToken::Keyword, "var")) {
@@ -777,103 +1223,140 @@ bool AnalisadorSintatico::compileVarDec()
     }
 
     // type: 'int' | 'char' | 'boolean' | className
+    std::string tipo;
+
     if (match(TipoToken::Keyword, "int")
         || match(TipoToken::Keyword, "char")
-        || match(TipoToken::Keyword, "boolean")) {
+        || match(TipoToken::Keyword, "boolean")
+        || match(TipoToken::Identifier)) {
 
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
-        advance();
-
-    } else if (match(TipoToken::Identifier)) {
-
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
+        tipo = tokenAtual()->lexema;
         advance();
 
     } else {
-        erro = (
-            "Erro sintático: esperado um tipo válido na declaração de variável local.");
+        registrarErro(
+            "Esperado um tipo válido na declaração de variável local."
+            );
         return false;
     }
 
-    // varName
-    if (!consume(TipoToken::Identifier)) {
-        return false;
-    }
+    // Captura os nomes das variáveis.
+    std::vector<std::string> nomes;
 
-    // (',' varName)*
-    while (match(TipoToken::Symbol, ",")) {
+    while (true) {
 
-        if (!consume(TipoToken::Symbol, ",")) {
+        if (!consume(TipoToken::Identifier)) {
             return false;
         }
 
-        if (!consume(TipoToken::Identifier)) {
+        nomes.push_back(tokenAtual()->lexema);
+        advance();
+
+        if (!match(TipoToken::Symbol, ",")) {
+            break;
+        }
+
+        if (!consume(TipoToken::Symbol, ",")) {
             return false;
         }
     }
 
     // ';'
-    if (!consume(TipoToken::Symbol, ";")) {
+    if (!match(TipoToken::Symbol, ";")) {
+        registrarErro("Esperado ';' ao final da declaração de variável local.");
         return false;
     }
 
-    fecharTag("varDec");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenAtual());
+
+    advance();
+
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    // Constrói o nó da declaração.
+    auto declaracao = std::make_unique<VariableDeclarationNode>(
+        sourceSpan,
+        VariableKind::Var,
+        tipo,
+        nomes
+        );
+
+    variaveisLocaisAtuais.push_back(std::move(declaracao));
 
     return true;
 }
 
 bool AnalisadorSintatico::compileSubroutine()
 {
-    abrirTag("subroutineDec");
+    // Registra o início da declaração.
+    const Token* tokenInicial = tokenAtual();
 
-    // ('constructor' | 'function' | 'method')
-    if (match(TipoToken::Keyword, "constructor")
-        || match(TipoToken::Keyword, "function")
-        || match(TipoToken::Keyword, "method")) {
-
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
-        advance();
-
-    } else {
-        erro = (
-            "Erro sintático: esperado 'constructor', 'function' ou 'method'.");
+    if (tokenInicial == nullptr) {
+        registrarErro("Declaração de subrotina inesperada.");
         return false;
     }
 
-    // ('void' | type)
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenInicial);
+
+    // Identifica o tipo da subrotina.
+    SubroutineKind kind;
+
+    if (match(TipoToken::Keyword, "constructor")) {
+        kind = SubroutineKind::Constructor;
+    } else if (match(TipoToken::Keyword, "function")) {
+        kind = SubroutineKind::Function;
+    } else if (match(TipoToken::Keyword, "method")) {
+        kind = SubroutineKind::Method;
+    } else {
+        registrarErro(
+            "Esperado 'constructor', 'function' ou 'method'."
+            );
+        return false;
+    }
+
+    advance();
+
+    // Captura o tipo de retorno.
+    std::string tipoRetorno;
+
     if (match(TipoToken::Keyword, "void")
         || match(TipoToken::Keyword, "int")
         || match(TipoToken::Keyword, "char")
-        || match(TipoToken::Keyword, "boolean")) {
+        || match(TipoToken::Keyword, "boolean")
+        || match(TipoToken::Identifier)) {
 
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
-        advance();
-
-    } else if (match(TipoToken::Identifier)) {
-
-        const Token *token = tokenAtual();
-        adicionarTokenXML(*token);
+        tipoRetorno = tokenAtual()->lexema;
         advance();
 
     } else {
-        erro = (
-            "Erro sintático: esperado um tipo de retorno válido.");
+        registrarErro("Esperado um tipo de retorno válido.");
         return false;
     }
 
-    // subroutineName
+    // Captura o nome da subrotina.
     if (!consume(TipoToken::Identifier)) {
         return false;
     }
+
+    const std::string nome = tokenAtual()->lexema;
+    advance();
 
     // '('
     if (!consume(TipoToken::Symbol, "(")) {
         return false;
     }
+
+    // Prepara o armazenamento temporário da subrotina.
+    parametrosAtuais.clear();
+    variaveisLocaisAtuais.clear();
+    instrucoesAtuais.clear();
 
     // parameterList
     if (!compileParameterList()) {
@@ -890,36 +1373,85 @@ bool AnalisadorSintatico::compileSubroutine()
         return false;
     }
 
-    fecharTag("subroutineDec");
+    // Registra a posição final da subrotina.
+    const Token* tokenFinal = &tokens[indiceAtual - 1];
+
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenFinal);
+
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    // Constrói o nó da subrotina.
+    auto subrotina = std::make_unique<SubroutineDeclarationNode>(
+        sourceSpan,
+        kind,
+        tipoRetorno,
+        nome
+        );
+
+    // Transfere os parâmetros para a subrotina.
+    for (auto& parametro : parametrosAtuais) {
+        subrotina->adicionarParametro(std::move(parametro));
+    }
+
+    // Transfere as variáveis locais para a subrotina.
+    for (auto& variavel : variaveisLocaisAtuais) {
+        subrotina->adicionarVariavelLocal(std::move(variavel));
+    }
+
+    // Transfere as instruções para a subrotina.
+    for (auto& instrucao : instrucoesAtuais) {
+        subrotina->adicionarInstrucao(std::move(instrucao));
+    }
+
+    // Armazena a subrotina na classe em construção.
+    subrotinasAtuais.push_back(std::move(subrotina));
 
     return true;
 }
 
 bool AnalisadorSintatico::compileParameterList()
 {
-    abrirTag("parameterList");
-
     // Uma lista de parâmetros pode estar vazia.
-    if (!match(TipoToken::Symbol, ")")) {
+    if (match(TipoToken::Symbol, ")")) {
+        return true;
+    }
+
+    while (true) {
+
+        // Registra o início do parâmetro.
+        const Token* tokenInicial = tokenAtual();
+
+        if (tokenInicial == nullptr) {
+            registrarErro(
+                "Esperado um parâmetro na lista de parâmetros."
+                );
+            return false;
+        }
+
+        const SourceSpan spanInicial =
+            obterSourceSpanToken(*tokenInicial);
 
         // type: 'int' | 'char' | 'boolean' | className
+        std::string tipo;
+
         if (match(TipoToken::Keyword, "int")
             || match(TipoToken::Keyword, "char")
-            || match(TipoToken::Keyword, "boolean")) {
+            || match(TipoToken::Keyword, "boolean")
+            || match(TipoToken::Identifier)) {
 
-            const Token *token = tokenAtual();
-            adicionarTokenXML(*token);
-            advance();
-
-        } else if (match(TipoToken::Identifier)) {
-
-            const Token *token = tokenAtual();
-            adicionarTokenXML(*token);
+            tipo = tokenAtual()->lexema;
             advance();
 
         } else {
-            erro = (
-                "Erro sintático: esperado um tipo válido na lista de parâmetros.");
+            registrarErro(
+                "Esperado um tipo válido na lista de parâmetros."
+                );
             return false;
         }
 
@@ -928,47 +1460,60 @@ bool AnalisadorSintatico::compileParameterList()
             return false;
         }
 
-        // (',' type varName)*
-        while (match(TipoToken::Symbol, ",")) {
+        const Token* tokenNome = tokenAtual();
+        const std::string nome = tokenNome->lexema;
 
-            if (!consume(TipoToken::Symbol, ",")) {
-                return false;
-            }
+        const SourceSpan spanFinal =
+            obterSourceSpanToken(*tokenNome);
 
-            if (match(TipoToken::Keyword, "int")
-                || match(TipoToken::Keyword, "char")
-                || match(TipoToken::Keyword, "boolean")) {
+        advance();
 
-                const Token *token = tokenAtual();
-                adicionarTokenXML(*token);
-                advance();
+        // Constrói o nó do parâmetro.
+        const SourceSpan sourceSpan{
+            spanInicial.startLine,
+            spanInicial.startColumn,
+            spanFinal.endLine,
+            spanFinal.endColumn
+        };
 
-            } else if (match(TipoToken::Identifier)) {
+        auto parametro = std::make_unique<ParameterNode>(
+            sourceSpan,
+            tipo,
+            nome
+            );
 
-                const Token *token = tokenAtual();
-                adicionarTokenXML(*token);
-                advance();
+        parametrosAtuais.push_back(std::move(parametro));
 
-            } else {
-                erro = (
-                    "Erro sintático: esperado um tipo válido após a vírgula.");
-                return false;
-            }
+        // Verifica se há outro parâmetro.
+        if (!match(TipoToken::Symbol, ",")) {
+            break;
+        }
 
-            if (!consume(TipoToken::Identifier)) {
-                return false;
-            }
+        if (!consume(TipoToken::Symbol, ",")) {
+            return false;
         }
     }
-
-    fecharTag("parameterList");
 
     return true;
 }
 
 bool AnalisadorSintatico::compileClass()
 {
-    abrirTag("class");
+    // Prepara o armazenamento temporário da classe.
+    classeAtual.reset();
+    variaveisClasseAtuais.clear();
+    subrotinasAtuais.clear();
+
+    // Registra o início da declaração da classe.
+    const Token* tokenInicial = tokenAtual();
+
+    if (tokenInicial == nullptr) {
+        registrarErro("Declaração de classe inesperada.");
+        return false;
+    }
+
+    const SourceSpan spanInicial =
+        obterSourceSpanToken(*tokenInicial);
 
     // 'class'
     if (!consume(TipoToken::Keyword, "class")) {
@@ -976,9 +1521,12 @@ bool AnalisadorSintatico::compileClass()
     }
 
     // className
-    if (!consume(TipoToken::Identifier)) {
-        return false;
+    if (!match(TipoToken::Identifier)) {
+        return consume(TipoToken::Identifier);
     }
+
+    const std::string nomeClasse = tokenAtual()->lexema;
+    advance();
 
     // '{'
     if (!consume(TipoToken::Symbol, "{")) {
@@ -988,6 +1536,7 @@ bool AnalisadorSintatico::compileClass()
     // classVarDec*
     while (match(TipoToken::Keyword, "static")
            || match(TipoToken::Keyword, "field")) {
+
         if (!compileClassVarDec()) {
             return false;
         }
@@ -997,64 +1546,107 @@ bool AnalisadorSintatico::compileClass()
     while (match(TipoToken::Keyword, "constructor")
            || match(TipoToken::Keyword, "function")
            || match(TipoToken::Keyword, "method")) {
+
         if (!compileSubroutine()) {
             return false;
         }
     }
 
-    // '}'
-    if (!consume(TipoToken::Symbol, "}")) {
-        return false;
+    // Registra a posição final da classe.
+    if (!match(TipoToken::Symbol, "}")) {
+        return consume(TipoToken::Symbol, "}");
     }
 
-    fecharTag("class");
+    const SourceSpan spanFinal =
+        obterSourceSpanToken(*tokenAtual());
+
+    advance();
+
+    const SourceSpan sourceSpan{
+        spanInicial.startLine,
+        spanInicial.startColumn,
+        spanFinal.endLine,
+        spanFinal.endColumn
+    };
+
+    // Constrói o nó da classe.
+    classeAtual = std::make_unique<ClassNode>(
+        sourceSpan,
+        nomeClasse
+        );
+
+    // Transfere as declarações de variáveis para a classe.
+    for (auto& variavel : variaveisClasseAtuais) {
+        classeAtual->adicionarVariavelClasse(
+            std::move(variavel)
+            );
+    }
+
+    variaveisClasseAtuais.clear();
+
+    // Transfere as declarações de subrotinas para a classe.
+    for (auto& subrotina : subrotinasAtuais) {
+        classeAtual->adicionarSubrotina(
+            std::move(subrotina)
+            );
+    }
+
+    subrotinasAtuais.clear();
 
     return true;
 }
 
-bool AnalisadorSintatico::analisar()
+SyntaxResult AnalisadorSintatico::analisar()
 {
     indiceAtual = 0;
-    xml.clear();
-    erro.clear();
+    erroSintatico.reset();
+
+    classeAtual.reset();
+    variaveisClasseAtuais.clear();
+    subrotinasAtuais.clear();
+    parametrosAtuais.clear();
+    variaveisLocaisAtuais.clear();
+    instrucoesAtuais.clear();
 
     if (tokens.empty()) {
-        erro = (
-            "Erro sintático: não há tokens para analisar.");
+        registrarErro(
+            "Não há tokens para analisar."
+            );
 
-        return false;
+        return *erroSintatico;
     }
 
     if (!compileClass()) {
-        xml.clear();
-        return false;
+        if (erroSintatico.has_value()) {
+            return *erroSintatico;
+        }
+
+        return SyntaxFailure{
+            "Falha durante a análise sintática.",
+            obterPosicaoAtual()
+        };
     }
 
     // Não permitir tokens extras após a classe.
     if (tokenAtual() != nullptr) {
-        const Token *token = tokenAtual();
+        registrarErro(
+            "Token inesperado '" + tokenAtual()->lexema
+            + "' após o fim da classe."
+            );
 
-        erro = "Erro sintático na linha "
-               + std::to_string(token->linha)
-               + ", coluna "
-               + std::to_string(token->coluna)
-               + ": token inesperado '"
-               + token->lexema
-               + "' após o fim da classe.";
-
-        xml.clear();
-        return false;
+        return *erroSintatico;
     }
 
-    return true;
-}
+    // Constrói o nó raiz do programa.
+    auto programa = std::make_unique<ProgramNode>(
+        classeAtual->obterSourceSpan()
+        );
 
-std::string AnalisadorSintatico::obterXML() const
-{
-    return xml;
-}
+    // Transfere a classe construída para o programa.
+    programa->adicionarClasse(std::move(classeAtual));
 
-std::string AnalisadorSintatico::obterErro() const
-{
-    return erro;
+    // Retorna o resultado da análise sintática.
+    return SyntaxSuccess{
+        std::move(programa)
+    };
 }

@@ -22,3 +22,4 @@ private:
 };
 
 #endif // JACK_AST_INTEGERLITERALNODE_H
+

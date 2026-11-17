@@ -19,6 +19,9 @@ public:
 
     const ExpressionNode& obterCondicao() const;
 
+    void definirPossuiElse();
+    bool possuiElse() const;
+
     void adicionarInstrucaoThen(std::unique_ptr<StatementNode> instrucao);
     void adicionarInstrucaoElse(std::unique_ptr<StatementNode> instrucao);
 
@@ -29,6 +32,7 @@ private:
     std::unique_ptr<ExpressionNode> condition;
     std::vector<std::unique_ptr<StatementNode>> thenBody;
     std::vector<std::unique_ptr<StatementNode>> elseBody;
+    bool hasElse = false;
 };
 
 #endif // JACK_AST_IFSTATEMENTNODE_H

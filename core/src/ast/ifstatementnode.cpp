@@ -17,6 +17,16 @@ const ExpressionNode& IfStatementNode::obterCondicao() const
     return *condition;
 }
 
+void IfStatementNode::definirPossuiElse()
+{
+    hasElse = true;
+}
+
+bool IfStatementNode::possuiElse() const
+{
+    return hasElse;
+}
+
 void IfStatementNode::adicionarInstrucaoThen(
     std::unique_ptr<StatementNode> instrucao
     )

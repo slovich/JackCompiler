@@ -183,6 +183,10 @@ target_include_directories(jack_cli PRIVATE
     cli/include
 )
 
+target_compile_definitions(jack_cli PRIVATE
+    JACK_PROJECT_ROOT="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
 target_link_libraries(jack_cli PRIVATE
     jack_core
 )

@@ -43,6 +43,7 @@ private:
     void analisarCompleto();
     void exportarXmlLexico();
     void exportarXmlSintatico();
+    void executarTestes();
     void exibirArquivoSelecionado() const;
 };
 

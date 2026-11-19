@@ -6,7 +6,7 @@
 #include <variant>
 #include <utility>
 #include <filesystem>
-#include <fstream>
+#include <algorithm>
 
 namespace jack::cli {
 
@@ -335,6 +335,271 @@ void Application::exportarXmlSintatico()
         );
 }
 
+void Application::executarTestes()
+{
+    terminal.exibirTitulo("Execução de Testes");
+
+    const std::filesystem::path raizProjeto(JACK_PROJECT_ROOT);
+
+    const std::filesystem::path diretorioPadrao =
+        raizProjeto / "tests" / "inputs";
+
+    terminal.exibirInformacao(
+        "Diretório padrão: " + diretorioPadrao.string()
+        );
+
+    std::string caminhoInformado = terminal.lerTexto(
+        "Informe outro diretório ou pressione ENTER para utilizar o padrão: "
+        );
+
+    std::filesystem::path diretorioTestes;
+
+    if (caminhoInformado.empty())
+    {
+        diretorioTestes = diretorioPadrao;
+    }
+    else
+    {
+        diretorioTestes = caminhoInformado;
+
+        if (diretorioTestes.is_relative())
+            diretorioTestes = raizProjeto / diretorioTestes;
+    }
+
+    if (!std::filesystem::exists(diretorioTestes))
+    {
+        terminal.exibirErro(
+            "O diretório informado não existe: " +
+            diretorioTestes.string()
+            );
+        return;
+    }
+
+    if (!std::filesystem::is_directory(diretorioTestes))
+    {
+        terminal.exibirErro(
+            "O caminho informado não corresponde a um diretório."
+            );
+        return;
+    }
+
+    const std::filesystem::path diretorioValidos =
+        diretorioTestes / "validos";
+
+    const std::filesystem::path diretorioInvalidos =
+        diretorioTestes / "invalidos";
+
+    if (!std::filesystem::exists(diretorioValidos) ||
+        !std::filesystem::is_directory(diretorioValidos))
+    {
+        terminal.exibirErro(
+            "O subdiretório 'validos' não foi encontrado."
+            );
+        return;
+    }
+
+    if (!std::filesystem::exists(diretorioInvalidos) ||
+        !std::filesystem::is_directory(diretorioInvalidos))
+    {
+        terminal.exibirErro(
+            "O subdiretório 'invalidos' não foi encontrado."
+            );
+        return;
+    }
+
+    std::vector<std::filesystem::path> arquivosValidos;
+    std::vector<std::filesystem::path> arquivosInvalidos;
+
+    for (const auto& entrada :
+         std::filesystem::directory_iterator(diretorioValidos))
+    {
+        if (entrada.is_regular_file() &&
+            entrada.path().extension() == ".jack")
+        {
+            arquivosValidos.push_back(entrada.path());
+        }
+    }
+
+    for (const auto& entrada :
+         std::filesystem::directory_iterator(diretorioInvalidos))
+    {
+        if (entrada.is_regular_file() &&
+            entrada.path().extension() == ".jack")
+        {
+            arquivosInvalidos.push_back(entrada.path());
+        }
+    }
+
+    if (arquivosValidos.empty())
+    {
+        terminal.exibirErro(
+            "O diretório 'validos' não contém arquivos Jack."
+            );
+        return;
+    }
+
+    if (arquivosInvalidos.empty())
+    {
+        terminal.exibirErro(
+            "O diretório 'invalidos' não contém arquivos Jack."
+            );
+        return;
+    }
+
+    std::sort(arquivosValidos.begin(), arquivosValidos.end());
+    std::sort(arquivosInvalidos.begin(), arquivosInvalidos.end());
+
+    terminal.exibirSucesso("Diretório de testes validado.");
+
+    terminal.exibirInformacao(
+        "Diretório: " + diretorioTestes.string()
+        );
+
+    terminal.exibirInformacao(
+        "Testes válidos encontrados: " +
+        std::to_string(arquivosValidos.size())
+        );
+
+    terminal.exibirInformacao(
+        "Testes inválidos encontrados: " +
+        std::to_string(arquivosInvalidos.size())
+        );
+
+    int testesAprovados = 0;
+    int testesReprovados = 0;
+    int errosExecucao = 0;
+
+    auto executarTeste = [&](const std::filesystem::path& caminho,
+                             bool esperadoValido)
+    {
+        terminal.exibirSeparador();
+        terminal.exibirInformacao(caminho.filename().string());
+
+        std::ifstream arquivo(caminho);
+
+        if (!arquivo.is_open())
+        {
+            terminal.exibirErro("Não foi possível abrir o arquivo.");
+            ++errosExecucao;
+            return;
+        }
+
+        std::stringstream buffer;
+        buffer << arquivo.rdbuf();
+
+        if (arquivo.bad())
+        {
+            terminal.exibirErro("Erro durante a leitura do arquivo.");
+            ++errosExecucao;
+            return;
+        }
+
+        const std::string codigoFonte = buffer.str();
+
+        AnalisadorLexico analisadorLexico(codigoFonte);
+
+        std::vector<Token> tokens;
+        std::string erroLexico;
+
+        const bool lexicoValido =
+            analisadorLexico.analisar(tokens, erroLexico);
+
+        bool sintaticoValido = false;
+        std::string erroSintatico;
+        SourceSpan localErroSintatico{};
+
+        if (lexicoValido)
+        {
+            AnalisadorSintatico analisadorSintatico(tokens, codigoFonte);
+
+            SyntaxResult resultado = analisadorSintatico.analisar();
+
+            if (std::holds_alternative<SyntaxSuccess>(resultado))
+            {
+                sintaticoValido = true;
+            }
+            else
+            {
+                const SyntaxFailure& falha =
+                    std::get<SyntaxFailure>(resultado);
+
+                erroSintatico = falha.message;
+                localErroSintatico = falha.sourceSpan;
+            }
+        }
+
+        const bool resultadoEsperado =
+            esperadoValido
+                ? lexicoValido && sintaticoValido
+                : !lexicoValido || (lexicoValido && !sintaticoValido);
+
+        if (resultadoEsperado)
+        {
+            terminal.exibirSucesso("APROVADO");
+            ++testesAprovados;
+        }
+        else
+        {
+            terminal.exibirErro("REPROVADO");
+            ++testesReprovados;
+        }
+
+        if (!lexicoValido)
+        {
+            terminal.exibirInformacao("Resultado: falha léxica.");
+            terminal.exibirInformacao(erroLexico);
+        }
+        else if (!sintaticoValido)
+        {
+            terminal.exibirInformacao("Resultado: falha sintática.");
+            terminal.exibirInformacao(erroSintatico);
+
+            terminal.exibirInformacao(
+                "Linha: " +
+                std::to_string(localErroSintatico.startLine) +
+                " | Coluna: " +
+                std::to_string(localErroSintatico.startColumn)
+                );
+        }
+        else
+        {
+            terminal.exibirInformacao(
+                "Análises léxica e sintática concluídas com sucesso."
+                );
+        }
+    };
+
+    terminal.exibirTitulo("Testes de Arquivos Válidos");
+
+    for (const auto& caminho : arquivosValidos)
+        executarTeste(caminho, true);
+
+    terminal.exibirTitulo("Testes de Arquivos Inválidos");
+
+    for (const auto& caminho : arquivosInvalidos)
+        executarTeste(caminho, false);
+
+    terminal.exibirSeparador();
+    terminal.exibirTitulo("Resumo da Execução");
+
+    terminal.exibirInformacao(
+        "Total de testes: " +
+        std::to_string(arquivosValidos.size() + arquivosInvalidos.size())
+        );
+
+    terminal.exibirSucesso(
+        "Testes aprovados: " + std::to_string(testesAprovados)
+        );
+
+    terminal.exibirErro(
+        "Testes reprovados: " + std::to_string(testesReprovados)
+        );
+
+    terminal.exibirAviso(
+        "Erros de execução: " + std::to_string(errosExecucao)
+        );
+}
+
 void Application::analisarCompleto()
 {
     terminal.exibirTitulo("Análise Completa");
@@ -378,9 +643,7 @@ void Application::processarOpcao(int opcao)
         break;
 
     case 8:
-        terminal.exibirInformacao(
-            "Execução de testes ainda não implementada."
-            );
+        executarTestes();
         break;
     }
 

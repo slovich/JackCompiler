@@ -1,4 +1,4 @@
-#include "analisadorsintatico.h"
+#include "jack/parser/analisadorsintatico.h"
 
 AnalisadorSintatico::AnalisadorSintatico(
     const std::vector<Token>& tokens,

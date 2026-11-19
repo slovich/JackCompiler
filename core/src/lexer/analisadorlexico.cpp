@@ -1,4 +1,4 @@
-#include "analisadorlexico.h"
+#include "jack/lexer/analisadorlexico.h"
 
 #include <unordered_set>
 #include <stdexcept>

@@ -17,8 +17,8 @@
 #include <QDomDocument>
 #include <memory>
 #include "dialogsobre.h"
-#include "analisadorlexico.h"
-#include "analisadorsintatico.h"
+#include "jack/lexer/analisadorlexico.h"
+#include "jack/parser/analisadorsintatico.h"
 #include "jack/lexer/token.h"
 #include "realcelexico.h"
 #include "realcesintatico.h"

@@ -85,6 +85,12 @@ set(CORE_SOURCES
     # Lexer
     core/include/jack/lexer/token.h
     core/src/lexer/token.cpp
+    core/include/jack/lexer/analisadorlexico.h
+    core/src/lexer/analisadorlexico.cpp
+
+    # Parser
+    core/include/jack/parser/analisadorsintatico.h
+    core/src/parser/analisadorsintatico.cpp
 )
 
 add_library(jack_core STATIC
@@ -105,12 +111,6 @@ set(PROJECT_SOURCES
     src/mainwindow.cpp
     src/mainwindow.h
     src/mainwindow.ui
-
-    src/analisadorlexico.cpp
-    src/analisadorlexico.h
-
-    src/analisadorsintatico.cpp
-    src/analisadorsintatico.h
 
     src/realcelexico.cpp
     src/realcelexico.h

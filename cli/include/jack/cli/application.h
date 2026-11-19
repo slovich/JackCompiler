@@ -6,6 +6,7 @@
 #include "jack/lexer/analisadorlexico.h"
 #include "jack/parser/analisadorsintatico.h"
 #include "jack/xml/geradorxmllexico.h"
+#include "jack/xml/geradorxmlsintatico.h"
 #include "jack/lexer/token.h"
 
 #include <vector>
@@ -41,6 +42,7 @@ private:
     bool analisarSintatico();
     void analisarCompleto();
     void exportarXmlLexico();
+    void exportarXmlSintatico();
     void exibirArquivoSelecionado() const;
 };
 

@@ -266,6 +266,75 @@ bool Application::analisarSintatico()
     return true;
 }
 
+void Application::exportarXmlSintatico()
+{
+    terminal.exibirTitulo("Exportar XML Sintático");
+
+    if (!analiseSintaticaValida || !programa)
+    {
+        terminal.exibirAviso(
+            "Não existe uma análise sintática válida para exportação."
+            );
+        return;
+    }
+
+    const std::filesystem::path caminhoOriginal(caminhoArquivo);
+
+    const std::filesystem::path caminhoSugerido =
+        caminhoOriginal.parent_path() /
+        (caminhoOriginal.stem().string() + ".xml");
+
+    terminal.exibirInformacao(
+        "Destino sugerido: " + caminhoSugerido.string()
+        );
+
+    std::string caminhoDestino = terminal.lerTexto(
+        "Informe o caminho de destino (ENTER para utilizar o sugerido): "
+        );
+
+    if (caminhoDestino.empty())
+        caminhoDestino = caminhoSugerido.string();
+
+    std::filesystem::path caminhoXml(caminhoDestino);
+
+    if (caminhoXml.extension() != ".xml")
+        caminhoXml += ".xml";
+
+    GeradorXmlSintatico gerador;
+    const std::string xml = gerador.gerar(*programa);
+
+    std::ofstream arquivoXml(
+        caminhoXml,
+        std::ios::out | std::ios::binary
+        );
+
+    if (!arquivoXml.is_open())
+    {
+        terminal.exibirErro(
+            "Não foi possível criar o arquivo XML: " +
+            caminhoXml.string()
+            );
+        return;
+    }
+
+    arquivoXml << xml;
+    arquivoXml.close();
+
+    if (arquivoXml.fail())
+    {
+        terminal.exibirErro(
+            "Ocorreu um erro durante a gravação do XML."
+            );
+        return;
+    }
+
+    terminal.exibirSucesso("XML sintático exportado com sucesso.");
+
+    terminal.exibirInformacao(
+        "Arquivo gerado: " + caminhoXml.string()
+        );
+}
+
 void Application::analisarCompleto()
 {
     terminal.exibirTitulo("Análise Completa");
@@ -305,9 +374,7 @@ void Application::processarOpcao(int opcao)
         break;
 
     case 7:
-        terminal.exibirInformacao(
-            "Exportação do XML sintático ainda não implementada."
-            );
+        exportarXmlSintatico();
         break;
 
     case 8:

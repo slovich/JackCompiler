@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "token.h"
+#include "jack/lexer/token.h"
 
 class AnalisadorLexico
 {

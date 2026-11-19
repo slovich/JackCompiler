@@ -6,7 +6,7 @@
 #include <optional>
 #include <memory>
 
-#include "token.h"
+#include "jack/lexer/token.h"
 #include "jack/parser/syntaxresult.h"
 #include "jack/ast/classnode.h"
 #include "jack/ast/variabledeclarationnode.h"

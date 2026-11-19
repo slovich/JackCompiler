@@ -3,6 +3,8 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include "jack/xml/geradorxmlsintatico.h"
+#include "jack/xml/geradorxmllexico.h"
+#include "jack/xml/geradorxmlsintatico.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -401,48 +403,19 @@ void MainWindow::on_pushButton_exportar_clicked()
     }
 
     // Configura o escritor XML.
-    QXmlStreamWriter xml(&arquivoXML);
-    xml.setAutoFormatting(true);
-    xml.setAutoFormattingIndent(2);
+    std::vector<Token> tokensParaXml;
+    tokensParaXml.reserve(tokens.size());
 
-    // Elemento raiz exigido pelo formato de tokens.
-    xml.writeStartElement("tokens");
-
-    // Escreve cada token na ordem em que foi reconhecido.
     for (const Token& token : tokens) {
-        QString categoria;
-
-        switch (token.tipo) {
-        case TipoToken::Keyword:
-            categoria = "keyword";
-            break;
-
-        case TipoToken::Symbol:
-            categoria = "symbol";
-            break;
-
-        case TipoToken::IntegerConstant:
-            categoria = "integerConstant";
-            break;
-
-        case TipoToken::StringConstant:
-            categoria = "stringConstant";
-            break;
-
-        case TipoToken::Identifier:
-            categoria = "identifier";
-            break;
-        }
-
-        xml.writeStartElement(categoria);
-
-        // O formato nand2tetris exige espaços ao redor do lexema.
-        xml.writeCharacters(" " + QString::fromStdString(token.lexema) + " ");
-
-        xml.writeEndElement();
+        tokensParaXml.push_back(token);
     }
 
-    xml.writeEndElement(); // </tokens>
+    GeradorXmlLexico geradorXmlLexico;
+    const std::string xmlGerado = geradorXmlLexico.gerar(tokensParaXml);
+
+    QTextStream saida(&arquivoXML);
+    saida << QString::fromStdString(xmlGerado);
+    saida.flush();
 
     arquivoXML.close();
 

@@ -217,7 +217,10 @@ bool AnalisadorSintatico::compileClassVarDec()
     std::vector<std::string> nomes;
 
     while (true) {
-        if (!consume(TipoToken::Identifier)) {
+        if (!match(TipoToken::Identifier)) {
+            registrarErro(
+                "Esperado um identificador na declaração de variável de classe."
+                );
             return false;
         }
 
@@ -228,9 +231,7 @@ bool AnalisadorSintatico::compileClassVarDec()
             break;
         }
 
-        if (!consume(TipoToken::Symbol, ",")) {
-            return false;
-        }
+        advance();
     }
 
     // Registra a posição final da declaração.
@@ -1244,8 +1245,10 @@ bool AnalisadorSintatico::compileVarDec()
     std::vector<std::string> nomes;
 
     while (true) {
-
-        if (!consume(TipoToken::Identifier)) {
+        if (!match(TipoToken::Identifier)) {
+            registrarErro(
+                "Esperado um identificador na declaração de variável local."
+                );
             return false;
         }
 
@@ -1256,9 +1259,7 @@ bool AnalisadorSintatico::compileVarDec()
             break;
         }
 
-        if (!consume(TipoToken::Symbol, ",")) {
-            return false;
-        }
+        advance();
     }
 
     // ';'
@@ -1341,7 +1342,8 @@ bool AnalisadorSintatico::compileSubroutine()
     }
 
     // Captura o nome da subrotina.
-    if (!consume(TipoToken::Identifier)) {
+    if (!match(TipoToken::Identifier)) {
+        registrarErro("Esperado o nome da subrotina.");
         return false;
     }
 
@@ -1456,7 +1458,10 @@ bool AnalisadorSintatico::compileParameterList()
         }
 
         // varName
-        if (!consume(TipoToken::Identifier)) {
+        if (!match(TipoToken::Identifier)) {
+            registrarErro(
+                "Esperado o nome do parâmetro na lista de parâmetros."
+                );
             return false;
         }
 

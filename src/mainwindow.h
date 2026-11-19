@@ -19,7 +19,7 @@
 #include "dialogsobre.h"
 #include "analisadorlexico.h"
 #include "analisadorsintatico.h"
-#include "token.h"
+#include "jack/lexer/token.h"
 #include "realcelexico.h"
 #include "realcesintatico.h"
 

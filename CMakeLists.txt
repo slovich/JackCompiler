@@ -77,8 +77,14 @@ set(CORE_SOURCES
     core/include/jack/ast/keywordconstant.h
 
     # XML
+    core/include/jack/xml/geradorxmllexico.h
+    core/src/xml/geradorxmllexico.cpp
     core/include/jack/xml/geradorxmlsintatico.h
     core/src/xml/geradorxmlsintatico.cpp
+
+    # Lexer
+    core/include/jack/lexer/token.h
+    core/src/lexer/token.cpp
 )
 
 add_library(jack_core STATIC
@@ -99,9 +105,6 @@ set(PROJECT_SOURCES
     src/mainwindow.cpp
     src/mainwindow.h
     src/mainwindow.ui
-
-    src/token.cpp
-    src/token.h
 
     src/analisadorlexico.cpp
     src/analisadorlexico.h

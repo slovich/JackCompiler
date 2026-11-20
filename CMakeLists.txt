@@ -3,15 +3,18 @@ cmake_minimum_required(VERSION 3.16)
 
 project(JackCompiler VERSION 0.1 LANGUAGES CXX)
 
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Xml)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Xml)
+option(BUILD_GUI "Compilar a interface gráfica Qt" ON)
+
+if(BUILD_GUI)
+    set(CMAKE_AUTOUIC ON)
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTORCC ON)
+    find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Xml)
+    find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Xml)
+endif()
 
 set(CORE_SOURCES
 
@@ -104,62 +107,77 @@ target_include_directories(jack_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/core/include
 )
 
-set(PROJECT_SOURCES
+if(BUILD_GUI)
+    set(PROJECT_SOURCES
 
-    # Aplicação Qt
-    src/main.cpp
-    src/mainwindow.cpp
-    src/mainwindow.h
-    src/mainwindow.ui
+        # Aplicação Qt
+        src/main.cpp
+        src/mainwindow.cpp
+        src/mainwindow.h
+        src/mainwindow.ui
 
-    src/realcelexico.cpp
-    src/realcelexico.h
+        src/realcelexico.cpp
+        src/realcelexico.h
 
-    src/realcesintatico.cpp
-    src/realcesintatico.h
+        src/realcesintatico.cpp
+        src/realcesintatico.h
 
-    src/dialogsobre.cpp
-    src/dialogsobre.h
-    src/dialogsobre.ui
+        src/dialogsobre.cpp
+        src/dialogsobre.h
+        src/dialogsobre.ui
 
-    assets.qrc
-)
-
-
-if(QT_VERSION_MAJOR GREATER_EQUAL 6)
-    qt_add_executable(compilador
-        MANUAL_FINALIZATION
-        ${PROJECT_SOURCES}
+        assets.qrc
     )
-else()
-    if(ANDROID)
-        add_library(compilador SHARED
+
+
+    if(QT_VERSION_MAJOR GREATER_EQUAL 6)
+        qt_add_executable(compilador
+            MANUAL_FINALIZATION
             ${PROJECT_SOURCES}
         )
     else()
-        add_executable(compilador
-            ${PROJECT_SOURCES}
-        )
+        if(ANDROID)
+            add_library(compilador SHARED
+                ${PROJECT_SOURCES}
+            )
+        else()
+            add_executable(compilador
+                ${PROJECT_SOURCES}
+            )
+        endif()
     endif()
+
+    target_link_libraries(compilador PRIVATE
+        jack_core
+        Qt${QT_VERSION_MAJOR}::Widgets
+        Qt${QT_VERSION_MAJOR}::Xml
+    )
+
+    if(QT_VERSION VERSION_LESS 6.1.0)
+        set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.compilador)
+    endif()
+
+    set_target_properties(compilador PROPERTIES
+        ${BUNDLE_ID_OPTION}
+        MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+        MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+        MACOSX_BUNDLE TRUE
+        WIN32_EXECUTABLE TRUE
+    )
+
+    include(GNUInstallDirs)
+
+    install(TARGETS compilador
+        BUNDLE DESTINATION .
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+
+    if(QT_VERSION_MAJOR EQUAL 6)
+        qt_finalize_executable(compilador)
+    endif()
+
 endif()
-
-target_link_libraries(compilador PRIVATE
-    jack_core
-    Qt${QT_VERSION_MAJOR}::Widgets
-    Qt${QT_VERSION_MAJOR}::Xml
-)
-
-if(QT_VERSION VERSION_LESS 6.1.0)
-    set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.compilador)
-endif()
-
-set_target_properties(compilador PROPERTIES
-    ${BUNDLE_ID_OPTION}
-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
-    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-    MACOSX_BUNDLE TRUE
-    WIN32_EXECUTABLE TRUE
-)
 
 add_executable(jack_cli
     cli/src/main.cpp
@@ -192,14 +210,6 @@ target_link_libraries(jack_cli PRIVATE
     jack_core
 )
 
-include(GNUInstallDirs)
 
-install(TARGETS compilador
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
 
-if(QT_VERSION_MAJOR EQUAL 6)
-    qt_finalize_executable(compilador)
-endif()
+

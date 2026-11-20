@@ -168,6 +168,7 @@ Recomenda-se utilizar diretórios separados para cada configuração de compila�
 | `build-cli` | Compilação independente da CLI |
 | `build-gui` | Compilação da GUI |
 | `build` | Compilação dos dois executáveis |
+| `build/` | Diretório de arquivos gerados pelo CMake |
 
 Os diretórios de compilação são gerados automaticamente pelo CMake e não fazem parte do código-fonte do projeto.
 

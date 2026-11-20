@@ -30,6 +30,7 @@ int Application::exibirMenuPrincipal()
         {6, "Exportar XML léxico"},
         {7, "Exportar XML sintático"},
         {8, "Executar testes"},
+        {9, "Testar arquivos Jack em lote"},
         {0, "Sair"}
     };
 
@@ -600,6 +601,147 @@ void Application::executarTestes()
         );
 }
 
+
+void Application::testarArquivosEmLote()
+{
+    terminal.exibirTitulo("Teste de Arquivos Jack em Lote");
+
+    const std::string caminho = terminal.lerTexto(
+        "Informe o caminho absoluto do diretório: "
+        );
+
+    if (caminho.empty())
+    {
+        terminal.exibirAviso("Nenhum caminho foi informado.");
+        return;
+    }
+
+    TestadorLote testador;
+    ResultadoLote resultado = testador.executar(caminho);
+
+    if (!resultado.mensagemErro.empty())
+    {
+        terminal.exibirErro(resultado.mensagemErro);
+        return;
+    }
+
+    terminal.exibirSucesso("Processamento em lote concluído.");
+
+    terminal.exibirInformacao(
+        "Diretório: " + resultado.diretorio
+        );
+
+    // Resultados individuais.
+    terminal.exibirTitulo("Resultados Individuais");
+
+    for (const ResultadoArquivo& arquivo : resultado.arquivos)
+    {
+        terminal.exibirSeparador();
+
+        terminal.exibirInformacao(
+            "Arquivo: " + arquivo.nomeArquivo
+            );
+
+        if (arquivo.categoria == CategoriaResultado::ErroLeitura)
+        {
+            terminal.exibirErro("Falha na leitura do arquivo.");
+            terminal.exibirInformacao(arquivo.mensagemErroLeitura);
+            continue;
+        }
+
+        terminal.exibirSucesso("Leitura concluída.");
+
+        if (arquivo.categoria == CategoriaResultado::ErroLexico)
+        {
+            terminal.exibirErro("Análise léxica reprovada.");
+            terminal.exibirInformacao(arquivo.mensagemErroLexico);
+            terminal.exibirAviso("Análise sintática não executada.");
+            terminal.exibirAviso(
+                "O lexer interrompeu no primeiro erro léxico identificado; "
+                "outros possíveis erros não foram verificados."
+                );
+
+            continue;
+        }
+
+        terminal.exibirSucesso("Análise léxica aprovada.");
+
+        terminal.exibirInformacao(
+            "Quantidade de tokens: " +
+            std::to_string(arquivo.quantidadeTokens)
+            );
+
+        if (arquivo.categoria == CategoriaResultado::ErroSintatico)
+        {
+            terminal.exibirErro("Análise sintática reprovada.");
+
+            terminal.exibirInformacao(
+                arquivo.mensagemErroSintatico
+                );
+
+            terminal.exibirInformacao(
+                "Linha: " +
+                std::to_string(arquivo.linhaErroSintatico) +
+                " | Coluna: " +
+                std::to_string(arquivo.colunaErroSintatico)
+                );
+
+            terminal.exibirAviso(
+                "Somente o primeiro erro sintático identificado é apresentado."
+                );
+
+            continue;
+        }
+
+        terminal.exibirSucesso("Análise sintática aprovada.");
+    }
+
+    // Resumo geral.
+    terminal.exibirSeparador();
+    terminal.exibirTitulo("Resumo do Processamento em Lote");
+
+    terminal.exibirInformacao(
+        "Arquivos encontrados: " +
+        std::to_string(resultado.totalArquivosEncontrados)
+        );
+
+    terminal.exibirInformacao(
+        "Arquivos processados: " +
+        std::to_string(resultado.totalArquivosProcessados)
+        );
+
+    terminal.exibirSucesso(
+        "Sucessos: " + std::to_string(resultado.totalSucesso)
+        );
+
+    terminal.exibirErro(
+        "Erros léxicos: " + std::to_string(resultado.totalErroLexico)
+        );
+
+    terminal.exibirErro(
+        "Erros sintáticos: " + std::to_string(resultado.totalErroSintatico)
+        );
+
+    terminal.exibirErro(
+        "Erros de leitura: " + std::to_string(resultado.totalErroLeitura)
+        );
+
+    terminal.exibirInformacao(
+        "Total de tokens: " + std::to_string(resultado.totalTokens)
+        );
+
+    terminal.exibirInformacao(
+        "Ocorrências de erros léxicos: " +
+        std::to_string(resultado.totalErrosLexicos)
+        );
+
+    terminal.exibirInformacao(
+        "Ocorrências de erros sintáticos: " +
+        std::to_string(resultado.totalErrosSintaticos)
+        );
+}
+
+
 void Application::analisarCompleto()
 {
     terminal.exibirTitulo("Análise Completa");
@@ -645,6 +787,11 @@ void Application::processarOpcao(int opcao)
     case 8:
         executarTestes();
         break;
+
+    case 9:
+        testarArquivosEmLote();
+        break;
+
     }
 
     terminal.lerTexto("Pressione ENTER para continuar...");

@@ -3,6 +3,7 @@
 
 #include "jack/cli/terminal.h"
 #include "jack/cli/menu.h"
+#include "jack/cli/testadorlote.h"
 #include "jack/lexer/analisadorlexico.h"
 #include "jack/parser/analisadorsintatico.h"
 #include "jack/xml/geradorxmllexico.h"
@@ -44,6 +45,7 @@ private:
     void exportarXmlLexico();
     void exportarXmlSintatico();
     void executarTestes();
+    void testarArquivosEmLote();
     void exibirArquivoSelecionado() const;
 };
 

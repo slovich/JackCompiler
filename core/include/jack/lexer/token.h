@@ -1,8 +1,7 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <QString>
-#include <QVector>
+#include <string>
 
 enum class TipoToken
 {
@@ -16,8 +15,9 @@ enum class TipoToken
 struct Token
 {
     TipoToken tipo;
-    QString lexema;
-    int linha, coluna;
+    std::string lexema;
+    int linha;
+    int coluna;
 };
 
 #endif // TOKEN_H

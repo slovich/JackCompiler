@@ -6,7 +6,7 @@
 #include <QTextCharFormat>
 #include <QVector>
 #include <QFont>
-#include "Token.h"
+#include "jack/lexer/token.h"
 
 class RealceLexico : public QSyntaxHighlighter
 {

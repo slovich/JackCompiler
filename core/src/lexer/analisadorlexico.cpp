@@ -1,19 +1,21 @@
+#include "jack/lexer/analisadorlexico.h"
 
-#include "AnalisadorLexico.h"
+#include <unordered_set>
+#include <stdexcept>
 
-AnalisadorLexico::AnalisadorLexico(const QString& codigoFonte)
+AnalisadorLexico::AnalisadorLexico(const std::string& codigoFonte)
     : codigoFonte(codigoFonte)
 {
 }
 
 bool AnalisadorLexico::analisar(
-    QVector<Token>& tokens,
-    QString& erro) const
+    std::vector<Token>& tokens,
+    std::string& erro) const
 {
     tokens.clear();
     erro.clear();
 
-    const QStringList palavrasChave = {
+    const std::unordered_set<std::string> palavrasChave = {
         "class", "constructor", "function", "method",
         "field", "static", "var", "int", "char",
         "boolean", "void", "true", "false", "null",
@@ -21,38 +23,35 @@ bool AnalisadorLexico::analisar(
         "return"
     };
 
-    const QString simbolos = "{}()[].,;+-*/&|<>=~";
+    const std::string simbolos = "{}()[].,;+-*/&|<>=~";
 
-    const int tamanho = codigoFonte.length();
+    const std::size_t tamanho = codigoFonte.size();
 
-    int posicao = 0;
+    std::size_t posicao = 0;
     int linha = 1;
-    int inicioLinha = 0;
+    std::size_t inicioLinha = 0;
 
-    auto ehLetra = [](QChar caractere) {
-        return (caractere >= QLatin1Char('a')
-                && caractere <= QLatin1Char('z'))
-               || (caractere >= QLatin1Char('A')
-                   && caractere <= QLatin1Char('Z'));
+    auto ehLetra = [](char caractere) {
+        return (caractere >= 'a' && caractere <= 'z')
+        || (caractere >= 'A' && caractere <= 'Z');
     };
 
-    auto ehDigito = [](QChar caractere) {
-        return caractere >= QLatin1Char('0')
-        && caractere <= QLatin1Char('9');
+    auto ehDigito = [](char caractere) {
+        return caractere >= '0' && caractere <= '9';
     };
 
-    auto ehEspaco = [](QChar caractere) {
-        return caractere == QLatin1Char(' ')
-        || caractere == QLatin1Char('\t')
-            || caractere == QLatin1Char('\r')
-            || caractere == QLatin1Char('\n');
+    auto ehEspaco = [](char caractere) {
+        return caractere == ' '
+               || caractere == '\t'
+               || caractere == '\r'
+               || caractere == '\n';
     };
 
     auto adicionarToken = [&](TipoToken tipo,
-                              const QString& lexema,
+                              const std::string& lexema,
                               int linhaToken,
                               int colunaToken) {
-        tokens.append(Token{
+        tokens.push_back(Token{
             tipo,
             lexema,
             linhaToken,
@@ -61,17 +60,17 @@ bool AnalisadorLexico::analisar(
     };
 
     while (posicao < tamanho) {
-        const QChar atual = codigoFonte.at(posicao);
+        const char atual = codigoFonte.at(posicao);
 
         // Ignora espaços em branco e atualiza a linha.
         if (ehEspaco(atual)) {
-            if (atual == QLatin1Char('\n')) {
+            if (atual == '\n') {
                 ++linha;
             }
 
             ++posicao;
 
-            if (atual == QLatin1Char('\n')) {
+            if (atual == '\n') {
                 inicioLinha = posicao;
             }
 
@@ -79,15 +78,15 @@ bool AnalisadorLexico::analisar(
         }
 
         // Comentários de linha: // ...
-        if (atual == QLatin1Char('/')
+        if (atual == '/'
             && posicao + 1 < tamanho
-            && codigoFonte.at(posicao + 1) == QLatin1Char('/')) {
+            && codigoFonte.at(posicao + 1) == '/') {
 
             posicao += 2;
 
             while (posicao < tamanho
                    && codigoFonte.at(posicao)
-                          != QLatin1Char('\n')) {
+                          != '\n') {
                 ++posicao;
             }
 
@@ -95,9 +94,9 @@ bool AnalisadorLexico::analisar(
         }
 
         // Comentários de bloco: /* ... */
-        if (atual == QLatin1Char('/')
+        if (atual == '/'
             && posicao + 1 < tamanho
-            && codigoFonte.at(posicao + 1) == QLatin1Char('*')) {
+            && codigoFonte.at(posicao + 1) == '*') {
 
             const int linhaInicio = linha;
             posicao += 2;
@@ -105,17 +104,17 @@ bool AnalisadorLexico::analisar(
             bool fechado = false;
 
             while (posicao < tamanho) {
-                if (codigoFonte.at(posicao) == QLatin1Char('\n')) {
+                if (codigoFonte.at(posicao) == '\n') {
                     ++linha;
                     ++posicao;
                     inicioLinha = posicao;
                     continue;
                 }
 
-                if (codigoFonte.at(posicao) == QLatin1Char('*')
+                if (codigoFonte.at(posicao) == '*'
                     && posicao + 1 < tamanho
                     && codigoFonte.at(posicao + 1)
-                           == QLatin1Char('/')) {
+                           == '/') {
                     posicao += 2;
                     fechado = true;
                     break;
@@ -125,10 +124,8 @@ bool AnalisadorLexico::analisar(
             }
 
             if (!fechado) {
-                erro = QString(
-                           "Comentário de bloco não terminado, "
-                           "iniciado na linha %1."
-                           ).arg(linhaInicio);
+                erro = "Comentário de bloco não terminado, iniciado na linha "
+                       + std::to_string(linhaInicio) + ".";
 
                 tokens.clear();
                 return false;
@@ -141,33 +138,30 @@ bool AnalisadorLexico::analisar(
         const int colunaToken = posicao - inicioLinha;
 
         // Constantes de texto: "..."
-        if (atual == QLatin1Char('"')) {
+        if (atual == '"') {
             ++posicao;
-            const int inicio = posicao;
+            const std::size_t inicio = posicao;
 
             while (posicao < tamanho
                    && codigoFonte.at(posicao)
-                          != QLatin1Char('"')
+                          != '"'
                    && codigoFonte.at(posicao)
-                          != QLatin1Char('\n')
+                          != '\n'
                    && codigoFonte.at(posicao)
-                          != QLatin1Char('\r')) {
+                          != '\r') {
                 ++posicao;
             }
 
             if (posicao >= tamanho
-                || codigoFonte.at(posicao) != QLatin1Char('"')) {
-                erro = QString(
-                           "Constante de texto não terminada "
-                           "na linha %1."
-                           ).arg(linhaToken);
-
+                || codigoFonte.at(posicao) != '"') {
+                erro = "Constante de texto não terminada na linha "
+                       + std::to_string(linhaToken) + ".";
                 tokens.clear();
                 return false;
             }
 
-            const QString lexema =
-                codigoFonte.mid(inicio, posicao - inicio);
+            const std::string lexema =
+                codigoFonte.substr(inicio, posicao - inicio);
 
             adicionarToken(
                 TipoToken::StringConstant,
@@ -182,25 +176,25 @@ bool AnalisadorLexico::analisar(
 
         // Identificadores e palavras-chave.
         if (ehLetra(atual)) {
-            const int inicio = posicao;
+            const std::size_t inicio = posicao;
 
             while (posicao < tamanho) {
-                const QChar caractere = codigoFonte.at(posicao);
+                const char caractere = codigoFonte.at(posicao);
 
                 if (!ehLetra(caractere)
                     && !ehDigito(caractere)
-                    && caractere != QLatin1Char('_')) {
+                    && caractere != '_') {
                     break;
                 }
 
                 ++posicao;
             }
 
-            const QString lexema =
-                codigoFonte.mid(inicio, posicao - inicio);
+            const std::string lexema =
+                codigoFonte.substr(inicio, posicao - inicio);
 
             const TipoToken tipo =
-                palavrasChave.contains(lexema)
+                palavrasChave.find(lexema) != palavrasChave.end()
                     ? TipoToken::Keyword
                     : TipoToken::Identifier;
 
@@ -216,24 +210,31 @@ bool AnalisadorLexico::analisar(
 
         // Constantes inteiras.
         if (ehDigito(atual)) {
-            const int inicio = posicao;
+            const std::size_t inicio = posicao;
 
             while (posicao < tamanho
                    && ehDigito(codigoFonte.at(posicao))) {
                 ++posicao;
             }
 
-            const QString lexema =
-                codigoFonte.mid(inicio, posicao - inicio);
+            const std::string lexema =
+                codigoFonte.substr(inicio, posicao - inicio);
 
-            bool conversaoValida = false;
-            const int valor = lexema.toInt(&conversaoValida);
+            bool conversaoValida = true;
+            int valor = 0;
+
+            try {
+                valor = std::stoi(lexema);
+            } catch (const std::invalid_argument&) {
+                conversaoValida = false;
+            } catch (const std::out_of_range&) {
+                conversaoValida = false;
+            }
 
             if (!conversaoValida || valor > 32767) {
-                erro = QString(
-                           "Constante inteira fora do intervalo "
-                           "permitido (0 a 32767), na linha %1: %2."
-                           ).arg(linhaToken).arg(lexema);
+                erro = "Constante inteira fora do intervalo permitido "
+                       "(0 a 32767), na linha "
+                       + std::to_string(linhaToken) + ": " + lexema + ".";
 
                 tokens.clear();
                 return false;
@@ -250,10 +251,10 @@ bool AnalisadorLexico::analisar(
         }
 
         // Símbolos da linguagem Jack.
-        if (simbolos.contains(atual)) {
+        if (simbolos.find(atual) != std::string::npos) {
             adicionarToken(
                 TipoToken::Symbol,
-                QString(atual),
+                std::string(1, atual),
                 linhaToken,
                 colunaToken
                 );
@@ -263,11 +264,10 @@ bool AnalisadorLexico::analisar(
         }
 
         // Caractere não reconhecido.
-        erro = QString(
-                   "Caractere inválido na linha %1, coluna %2: '%3'."
-                   ).arg(linhaToken)
-                   .arg(colunaToken)
-                   .arg(atual);
+        erro = "Caractere inválido na linha "
+               + std::to_string(linhaToken)
+               + ", coluna " + std::to_string(colunaToken)
+               + ": '" + std::string(1, atual) + "'.";
 
         tokens.clear();
         return false;

@@ -171,6 +171,9 @@ add_executable(jack_cli
     cli/src/menu.cpp
     cli/include/jack/cli/application.h
     cli/src/application.cpp
+    cli/include/jack/cli/resultado_lote.h
+    cli/include/jack/cli/testadorlote.h
+    cli/src/testadorlote.cpp
 )
 
 set_target_properties(jack_cli PROPERTIES

@@ -2,20 +2,24 @@
 
 ## 1. Objetivo e escopo
 
-Este documento descreve a organização interna do **JackCompiler**, suas principais responsabilidades, os componentes que participam do processamento de um arquivo Jack e as relações entre eles.
+Este documento descreve a organização interna do **JackCompiler**, suas principais responsabilidades, os componentes envolvidos no processamento de programas Jack e as relações entre eles.
 
-O projeto implementa as etapas de **análise léxica**, **análise sintática**, construção de uma **árvore sintática abstrata (AST)** e geração de representações em **XML**. A aplicação oferece duas interfaces de acesso ao mesmo núcleo de processamento: uma interface gráfica, desenvolvida com Qt, e uma interface de linha de comando.
+O projeto implementa análise léxica, análise sintática, construção de uma árvore sintática abstrata (AST), manutenção de uma tabela de símbolos, geração de código para a máquina virtual Jack (VM) e geração de representações em XML. A aplicação dispõe de uma interface gráfica, desenvolvida com Qt, e de uma interface de linha de comando.
 
-É importante delimitar o escopo: o projeto não implementa análise semântica nem geração de código para a máquina virtual (VM). Portanto, ele reconhece a estrutura léxica e sintática do código e produz representações intermediárias em XML, mas não realiza todas as etapas de um compilador Jack completo.
+A implementação da SymbolTable e do VMWriter foi submetida a testes comportamentais independentes. O VMCodeGenerator e sua integração com o fluxo não interativo da CLI foram submetidos à validação funcional utilizando os seis programas oficiais do Project 11 do Nand2Tetris.
+
+A existência desses componentes e os resultados de validação não representam, por si só, prova de cobertura exaustiva de todas as construções da linguagem Jack. A implementação de geração VM está disponível no fluxo não interativo da CLI, mas a análise semântica completa não está comprovada pelas evidências documentais consideradas nesta revisão.
+
+Assim, é necessário distinguir a geração de código VM já implementada da análise semântica completa: a existência da SymbolTable não comprova, isoladamente, que todas as verificações semânticas da linguagem estejam implementadas e integradas.
 
 ## 2. Visão geral da arquitetura
 
 A arquitetura separa o processamento da linguagem das interfaces utilizadas para acioná-lo:
 
-- **`core`**: contém a implementação compartilhada do analisador léxico, do analisador sintático, da AST e dos geradores XML.
-- **`cli`**: implementa a interface de linha de comando e utiliza o núcleo compartilhado.
-- **`src`**: implementa a interface gráfica Qt e também utiliza o núcleo compartilhado.
-- **`tests`**: contém arquivos Jack organizados em categorias para a execução dos testes funcionais por lote.
+- **`core`**: contém a implementação compartilhada dos analisadores léxico e sintático, da AST, da tabela de símbolos, dos componentes de geração de código VM e dos geradores XML.
+- **`cli`**: implementa a interface de linha de comando, incluindo o menu interativo e o fluxo não interativo de geração de código VM.
+- **`src`**: implementa a interface gráfica Qt e utiliza o núcleo compartilhado para análise léxica, análise sintática e operações relacionadas à representação XML.
+- **`tests`**: contém arquivos Jack para testes funcionais e arquivos de testes independentes dos componentes do núcleo.
 
 A biblioteca `jack_core` concentra a lógica de processamento. Tanto `jack_cli` quanto `compilador` dependem dela, evitando manter implementações distintas dos analisadores para cada interface.
 
@@ -50,18 +54,27 @@ JackCompiler/
 │   │   ├── ast/
 │   │   ├── lexer/
 │   │   ├── parser/
+│   │   ├── symbol/
+│   │   ├── vm/
 │   │   └── xml/
 │   └── src/
 │       ├── ast/
 │       ├── lexer/
 │       ├── parser/
+│       ├── symbol/
+│       ├── vm/
 │       └── xml/
 ├── docs/
 ├── src/
 ├── tests/
-│   └── inputs/
-│       ├── invalidos/
-│       └── validos/
+│   ├── expected/
+│   ├── inputs/
+│   │   ├── invalidos/
+│   │   └── validos/
+│   ├── symboltable_test.cpp
+│   ├── vmwriter_tests.cpp
+│   ├── vmcodegenerator_tests.cpp
+│   └── vmcodegenerator_extended_tests.cpp
 └── CMakeLists.txt
 ```
 
@@ -74,6 +87,8 @@ O diretório `core` é dividido por responsabilidade:
 | `ast` | Declaração e implementação dos nós da árvore sintática abstrata |
 | `lexer` | Representação dos tokens e análise léxica |
 | `parser` | Resultado da análise sintática e reconhecimento da gramática |
+| `symbol` | Implementação da tabela de símbolos |
+| `vm` | Implementação do emissor de instruções VM e do gerador de código VM |
 | `xml` | Geração das representações XML léxica e sintática |
 
 Os diretórios `include` e `src` separam as interfaces públicas das implementações. Os cabeçalhos públicos ficam em `core/include/jack`, enquanto as implementações correspondentes ficam em `core/src`.
@@ -94,35 +109,35 @@ O projeto utiliza CMake para configurar a compilação e exige suporte a **C++17
 
 ### 4.1 Alvos de compilação
 
-| Alvo | Tipo | Responsabilidade |
+| Alvo CMake | Tipo | Responsabilidade |
 |---|---|---|
-| `jack_core` | Biblioteca estática | Disponibilizar os analisadores, a AST e os geradores XML |
-| `jack_cli` | Executável | Disponibilizar a interface de linha de comando |
-| `compilador` | Executável | Disponibilizar a interface gráfica Qt, quando habilitada |
+| `jack_core` | Biblioteca estática | Reunir os componentes compartilhados do núcleo: lexer, parser, AST, SymbolTable, VMWriter, VMCodeGenerator e geradores XML. |
+| `jack_cli` | Executável | Disponibilizar a interface de linha de comando, incluindo o fluxo não interativo de geração de código VM. |
+| `compilador` | Executável | Disponibilizar a interface gráfica Qt. O alvo é criado somente quando `BUILD_GUI` está habilitado. |
 
 A opção CMake `BUILD_GUI` controla a inclusão da interface gráfica e tem valor padrão `ON`.
 
-Quando `BUILD_GUI=OFF`, o CMake não procura os componentes Qt e não cria o alvo `compilador`. O núcleo e a interface CLI continuam disponíveis. Essa separação permite compilar e utilizar o analisador pela linha de comando sem instalar Qt.
+Quando `BUILD_GUI=OFF`, o CMake não procura os componentes Qt e não cria o alvo `compilador`. O núcleo e a interface CLI continuam disponíveis. Essa separação permite compilar e utilizar a CLI sem instalar Qt.
 
 Quando a interface gráfica está habilitada, o projeto procura Qt 5 ou Qt 6 com os componentes `Widgets` e `Xml`. O executável gráfico é vinculado a `jack_core` e aos módulos Qt correspondentes.
 
-O módulo `Qt Xml` é utilizado pela interface gráfica para interpretar o XML sintático produzido pelo núcleo. Em particular, `MainWindow::gerarArvoreSintatica()` utiliza `QXmlStreamReader` para percorrer o documento XML e construir o modelo hierárquico apresentado na interface. Os geradores do `core`, por sua vez, produzem o conteúdo XML como `std::string` e não dependem das classes Qt.
+A interface gráfica utiliza recursos do Qt para interpretar o XML sintático produzido pelo núcleo. Em particular, `MainWindow::gerarArvoreSintatica()` utiliza `QXmlStreamReader`, disponibilizado pelo Qt Core, para percorrer o documento XML e construir o modelo hierárquico apresentado na interface. Os geradores do `core`, por sua vez, produzem o conteúdo XML como `std::string` e não dependem das classes Qt. Embora o CMake também declare a dependência de `Qt Xml`, o uso de `QXmlStreamReader` não justifica essa dependência, pois a classe pertence ao Qt Core; a associação de `Qt Xml` a uma funcionalidade específica depende da identificação de classes desse módulo efetivamente utilizadas pela GUI.
 
 ### 4.2 Dependências entre os componentes
 
 O núcleo não depende de Qt. Sua implementação utiliza C++ e as estruturas da biblioteca padrão, incluindo contêineres, strings, variantes e ponteiros inteligentes.
 
-As duas interfaces dependem do núcleo. A interface gráfica também utiliza Qt Widgets para a apresentação visual e Qt Xml para a leitura do XML sintático:
+As duas interfaces dependem do núcleo. A interface gráfica também utiliza Qt Widgets para a apresentação visual e recursos do Qt Core para percorrer o documento XML sintático:
 
 ```mermaid
 flowchart TD
     A["jack_cli"] --> C["jack_core"]
     B["compilador (GUI)"] --> C
     B --> D["Qt Widgets"]
-    B --> E["Qt Xml"]
+    B --> E["Qt Core"]
 ```
 
-Essa organização mantém a lógica de análise e geração XML independente da tecnologia de interface. A dependência de Qt Xml fica restrita ao processamento do documento XML pela GUI, não ao funcionamento dos geradores do núcleo.
+Essa organização mantém a lógica de análise e geração XML independente da tecnologia de interface. A GUI utiliza recursos do Qt Core para percorrer o documento XML, enquanto os geradores do núcleo produzem o conteúdo XML como `std::string`, sem dependência das classes Qt.
 
 ## 5. Fluxo de processamento
 
@@ -137,6 +152,8 @@ O processamento de um arquivo Jack ocorre em etapas encadeadas:
 7. A sequência de tokens pode ser utilizada pelo gerador XML léxico.
 
 A geração do XML léxico depende dos tokens e não exige a construção da AST. Já a geração do XML sintático depende de uma AST válida.
+
+Além desse fluxo de análise e geração XML, o núcleo contém os componentes `SymbolTable`, `VMWriter` e `VMCodeGenerator`. A geração de arquivos VM está integrada ao fluxo não interativo da CLI. Essa funcionalidade não deve ser atribuída à GUI: não há evidência de que a interface gráfica ofereça geração VM.
 
 ## 6. Análise léxica
 
@@ -351,9 +368,11 @@ Assim como no gerador léxico, os caracteres `&`, `<` e `>` são escapados quand
 
 ### 10.1 Interface de linha de comando
 
-A aplicação CLI é iniciada por `main()`, que instancia `Application` e chama `executar()`. A classe `Application` coordena o menu, a seleção e leitura de arquivos, a execução das análises e a apresentação dos resultados.
+A aplicação CLI é iniciada por `main()`, que seleciona o fluxo de execução conforme os argumentos recebidos. Quando há argumentos, instancia `CompiladorVMCLI` e encaminha a execução para o processamento não interativo. Quando não há argumentos, inicia o fluxo interativo, coordenado pela classe `Application`, responsável pelo menu, pela seleção e leitura de arquivos, pela execução das análises e pela apresentação dos resultados.
 
-A interface permite executar a análise léxica e sintática separadamente ou em sequência, exportar XML, executar os testes organizados no projeto e analisar arquivos de um diretório em lote.
+A CLI oferece operações interativas para executar as análises léxica e sintática, exportar XML, executar os testes organizados no projeto e analisar arquivos em lote. Separadamente, disponibiliza um fluxo não interativo acionado por argumentos, utilizado para gerar arquivos de código VM a partir de programas Jack.
+
+A geração VM é, portanto, uma funcionalidade da CLI não interativa, apoiada pelos componentes do `jack_core`. Ela não faz parte do menu interativo nem da interface gráfica, conforme o escopo validado nesta etapa.
 
 A CLI utiliza `jack_core`; não contém uma segunda implementação dos analisadores.
 
@@ -378,7 +397,9 @@ A interface CLI oferece uma opção que executa os testes dessas duas categorias
 
 O componente `TestadorLote` realiza a leitura dos arquivos, executa a análise léxica e, quando ela é bem-sucedida, executa a análise sintática. Os resultados são contabilizados por arquivo e consolidados em um resumo.
 
-Esse mecanismo é um executor funcional baseado em arquivos de entrada. A configuração atual do projeto não define, no CMake, um framework específico de testes unitários, como GoogleTest ou CTest.
+Esse mecanismo é um executor funcional baseado em arquivos de entrada para as análises léxica e sintática. Além dele, existem arquivos de testes independentes para SymbolTable, VMWriter e VMCodeGenerator. Esses testes foram compilados e executados separadamente; não estavam integrados aos alvos do CMake nem ao CTest na configuração examinada.
+
+A ausência de integração CMake/CTest é uma característica da infraestrutura de testes registrada na auditoria, não uma indicação de que os testes independentes não tenham sido executados.
 
 ## 12. Decisões arquiteturais e limites atuais
 
@@ -389,9 +410,9 @@ As decisões e características a seguir ajudam a compreender o comportamento at
 - **Construção explícita da AST:** a análise sintática não se limita a validar a sequência de tokens; ela constrói uma representação estruturada do programa.
 - **Uma classe por arquivo:** a unidade de análise atual reconhece uma declaração de classe por arquivo `.jack` e rejeita tokens excedentes após essa declaração.
 - **Falha sintática sem recuperação:** o parser registra o primeiro erro e encerra a análise, sem tentar sincronizar e continuar a partir de uma construção posterior.
-- **Sem análise semântica:** não são verificadas propriedades como declaração prévia de variáveis, compatibilidade entre argumentos e parâmetros ou consistência de tipos e retornos.
-- **Sem geração de VM:** o projeto não transforma a AST em instruções da máquina virtual Jack.
-- **XML como saída das etapas implementadas:** os geradores produzem representações XML léxica e sintática, não código executável.
+- **Análise semântica não comprovada como etapa completa:** a existência da SymbolTable não demonstra, por si só, que verificações como resolução completa de identificadores, compatibilidade de tipos, argumentos e parâmetros ou consistência de retornos estejam implementadas e integradas.
+- **Geração VM disponível pela CLI não interativa:** o `VMCodeGenerator` e o `VMWriter` estão implementados no núcleo e são utilizados pelo fluxo não interativo da CLI. Não há evidência de geração VM pela GUI.
+- **Saídas distintas:** os geradores XML produzem representações léxica e sintática; o fluxo VM da CLI produz arquivos `.vm`.
 
 Esses limites delimitam o que se pode concluir a partir de uma execução bem-sucedida: o arquivo foi aceito pelas regras léxicas e sintáticas implementadas, mas isso não significa que todas as propriedades semânticas do programa tenham sido verificadas.
 
@@ -399,12 +420,11 @@ Esses limites delimitam o que se pode concluir a partir de uma execução bem-su
 
 A separação entre núcleo e interfaces permite evoluções sem exigir que toda a aplicação seja reestruturada. Entre os caminhos tecnicamente compatíveis com a arquitetura atual estão:
 
-- ampliar a cobertura de testes automatizados e incluir casos de regressão;
 - aprimorar as mensagens e a localização de erros;
 - avaliar a inclusão de recuperação sintática, caso seja desejável reportar mais de um erro por execução;
-- implementar análise semântica como etapa posterior à construção da AST;
-- desenvolver geração de código VM a partir da AST;
-- adicionar outras interfaces que reutilizem `jack_core`.
+- completar ou ampliar a análise semântica, caso isso venha a ser definido como requisito;
+- ampliar a cobertura de testes automatizados e avaliar sua integração ao CMake/CTest;
+- adicionar outras interfaces que reutilizem `jack_core`, caso necessário.
 
 Esses itens são possibilidades de evolução, não funcionalidades já implementadas.
 

@@ -1,5 +1,5 @@
-# Diretórios de compilação
-build/
+# Diretórios de compilação e artefatos de build
+build*/
 cmake-build-*/
 out/
 
@@ -31,3 +31,6 @@ Makefile
 
 # Arquivos compactados de projeto
 *.zip
+
+#Ambiente Nand2Tetris
+nand2tetris/

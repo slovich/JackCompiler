@@ -18,6 +18,16 @@ endif()
 
 set(CORE_SOURCES
 
+    # Symbol Table
+    core/include/jack/symbol/symboltable.h
+    core/src/symbol/symboltable.cpp
+    # VM Writer
+    core/include/jack/vm/vmwriter.h
+    core/src/vm/vmwriter.cpp
+    # VM Code Generator
+    core/include/jack/vm/vmcodegenerator.h
+    core/src/vm/vmcodegenerator.cpp
+
     # AST - Infraestrutura
     core/src/ast/sourcespan.cpp
     core/include/jack/ast/sourcespan.h
@@ -181,6 +191,8 @@ endif()
 
 add_executable(jack_cli
     cli/src/main.cpp
+    cli/src/compilador_vm_cli.cpp
+    cli/include/jack/cli/compilador_vm_cli.h
     cli/src/terminal.cpp
     cli/include/jack/cli/terminal.h
     cli/include/jack/cli/menu.h

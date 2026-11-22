@@ -1,9 +1,14 @@
 #include "jack/cli/application.h"
+#include "jack/cli/compilador_vm_cli.h"
 
-int main()
+int main(int argc, char* argv[])
 {
-    jack::cli::Application application;
+    if (argc > 1) {
+        jack::cli::CompiladorVMCLI compiler;
+        return compiler.executar(argc, argv);
+    }
 
+    jack::cli::Application application;
     application.executar();
 
     return 0;

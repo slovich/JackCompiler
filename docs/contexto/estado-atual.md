@@ -169,3 +169,24 @@ Os resultados acima estão fundamentados nos seguintes registros:
 - Parecer final de validação do VMCodeGenerator e integração CLI/VM — etapa encerrada.
 
 Esta atualização substitui a classificação anterior de geração VM como funcionalidade não implementada. A fotografia inicial de 20/11/2026 permanece preservada como registro histórico, mas não representa o estado posterior à conclusão da etapa de geração VM.
+
+## Formalização da frente UX Designer
+
+**Data de referência:** 22/11/2026.
+
+Foi formalizada uma frente especializada de UX Designer, responsável pelo estudo e pela especificação da experiência de uso da interface gráfica do JackCompiler.
+
+Seu escopo compreende:
+
+- organização visual da interface;
+- navegação e hierarquia das informações;
+- fluxos de interação;
+- estados visuais e feedback ao usuário;
+- responsividade;
+- integração visual de funcionalidades disponibilizadas pelo `jack_core`, quando sua disponibilidade estiver confirmada.
+
+A atuação do UX Designer é de estudo e especificação. Não inclui implementação de código de produção, alteração da arquitetura do núcleo ou da CLI, nem aprovação autônoma de decisões visuais.
+
+As propostas produzidas por essa frente não devem ser interpretadas como funcionalidades implementadas ou decisões aprovadas. Após aprovação do responsável pelo projeto, as especificações devem ser encaminhadas ao Analista, que ficará responsável por formalizar requisitos e critérios de aceitação para as etapas posteriores.
+
+Esta formalização registra uma organização de trabalho do projeto. **Não documenta alteração implementada na GUI**, nem confirma que as oportunidades de melhoria identificadas pelo UX Designer já tenham sido incorporadas ao software.

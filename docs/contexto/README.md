@@ -23,7 +23,7 @@ Uma divergência não deve ser corrigida silenciosamente. Deve ser registrada, a
 | [`estado-atual.md`](estado-atual.md) | Fotografia técnica do projeto, vinculada à referência de repositório indicada no próprio documento. |
 | [`decisoes-e-pendencias.md`](decisoes-e-pendencias.md) | Registro de decisões confirmadas, pendências e divergências conhecidas. |
 | [`protocolo-integracao.md`](protocolo-integracao.md) | Regras de comunicação, coordenação e integração entre as frentes de trabalho. |
-| [`handoffs/`](handoffs/) | Instruções iniciais e limites de atuação dos especialistas. |
+| [`handoffs/`](handoffs/) | Instruções iniciais, responsabilidades e limites de atuação dos agentes especialistas, incluindo Analista, Desenvolvedor, Testador, Revisor, GitKeeper e UX Designer. |
 
 ## Documentação oficial
 

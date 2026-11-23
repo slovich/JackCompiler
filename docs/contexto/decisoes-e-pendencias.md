@@ -10,6 +10,7 @@
 6. Não realizar commits, tags ou releases sem autorização explícita.
 7. Toda mudança proposta deve vir acompanhada de comandos PowerShell seguros para aplicação e validação.
 8. Chats especialistas devem registrar evidências, arquivos afetados, verificações e pendências.
+9. A frente UX Designer é responsável pelo estudo e pela especificação da experiência de uso da GUI, incluindo organização visual, navegação, fluxos de interação, estados visuais, feedback e responsividade. Suas propostas não constituem decisões aprovadas nem autorizam implementação. Após aprovação do responsável pelo projeto, as especificações são encaminhadas ao Analista para formalização dos requisitos e critérios de aceitação, antes de serem conduzidas às etapas de desenvolvimento.
 
 ## Fatos confirmados na auditoria inicial
 

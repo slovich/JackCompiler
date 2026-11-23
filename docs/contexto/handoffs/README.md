@@ -26,6 +26,7 @@ O handoff define o escopo inicial, mas não substitui a verificação do estado 
 | [`gitkeeper.md`](gitkeeper.md) | Inspeção do estado Git, organização de alterações e preparação de commits, respeitando as autorizações recebidas. |
 | [`revisor.md`](revisor.md) | Revisão técnica e avaliação de alterações. |
 | [`testador.md`](testador.md) | Planejamento, execução e registro de testes. |
+| [`ux-designer.md`](ux-designer.md) | Estudo e especificação da experiência de uso da interface gráfica, incluindo organização visual, navegação, fluxos de interação e feedback ao usuário. |
 
 A descrição da tabela indica a finalidade geral de cada handoff; os limites e as instruções específicos são os definidos no respectivo documento.
 

@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Manter os trabalhos de Analista, Desenvolvedor, Testador e Revisor coerentes com o mesmo estado do JackCompiler, evitando decisões conflitantes, alterações não rastreadas e funcionalidades presumidas.
+Manter os trabalhos de Analista, Desenvolvedor, Testador, Revisor e UX Designer coerentes com o mesmo estado do JackCompiler, evitando decisões conflitantes, alterações não rastreadas e funcionalidades presumidas.
 
 ## Fonte de verdade
 
@@ -44,6 +44,7 @@ Cada especialista deve entregar ao Arquiteto de Documentação:
 - Desenvolvedor: implementa somente escopo aprovado; registra decisões técnicas e arquivos alterados.
 - Testador: deriva casos de teste de requisitos e comportamento acordados; registra ambiente, comandos e resultados.
 - Revisor: avalia criticamente alterações e evidências; não altera silenciosamente decisões ou requisitos.
+- UX Designer: estuda a interface gráfica existente e produz propostas e especificações de experiência de uso, abrangendo organização visual, navegação, fluxos de interação, estados visuais, feedback e responsividade. Não implementa código, não altera a arquitetura do núcleo ou da CLI e não transforma propostas em decisões aprovadas. As especificações de UX aprovadas pelo responsável são encaminhadas ao Analista, que organiza os requisitos e critérios de aceitação para as etapas seguintes de desenvolvimento.
 - Arquiteto de Documentação: mantém estado global, integra entregas, resolve conflitos por consulta ao responsável e mantém contexto/handoffs.
 
 ## Ciclo de trabalho

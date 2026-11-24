@@ -2,8 +2,8 @@
 
 **Projeto:** JackCompiler  
 **Repositório informado:** `slovich/JackCompiler`  
-**Atualização:** 22/11/2026  
-**Escopo:** implementação e validação do `VMCodeGenerator`, incluindo investigação das ocorrências em Square e Pong.
+**Atualização:** 24/11/2026
+**Escopo:** desenvolvimento e validação dos componentes do JackCompiler, incluindo o `VMCodeGenerator`, a investigação das ocorrências em Square e Pong e a portabilidade da CLI Windows.
 
 ## Papel
 
@@ -179,6 +179,7 @@ O usuário repetiu a compilação oficial de Square e obteve o mesmo resultado: 
 6. O redimensionamento de Square permanece sem comportamento funcional observado, mas foi reproduzido com o compilador oficial e não deve ser classificado como defeito confirmado do JackCompiler.
 7. Não há evidência suficiente nesta fase para afirmar cobertura integral de todas as construções Jack ou ausência de defeitos no VMCodeGenerator.
 8. A compatibilidade com outras versões do emulador, do Java ou do sistema operacional não foi investigada sistematicamente.
+9. O handoff recebido registra o comparador de XML como pendência. Entretanto, seu estado no checkout atual não pôde ser confirmado nesta revisão, pois foi disponibilizado apenas o handoff, sem o checkout vigente ou evidência atualizada de implementação e testes. Antes de classificar essa atividade como pendente ou concluída, verificar a branch, o commit, a working tree, os arquivos e os testes correspondentes no projeto atual.
 
 ## 6. Próximas orientações de desenvolvimento
 
@@ -188,6 +189,146 @@ O usuário repetiu a compilação oficial de Square e obteve o mesmo resultado: 
 - Preservar a separação arquitetural: `jack_core` contém a lógica de compilação independente de Qt; `jack_cli` consome o core sem Qt; GUI permanece na camada Qt. A integração VM com GUI não foi confirmada.
 - Não realizar commit, tag, release ou push sem autorização explícita.
 - Ao concluir uma próxima fase, atualizar este handoff e entregar o documento junto ao relatório.
+
+---
+
+
+## 7. Vinculação estática dos runtimes GCC no `jack_cli` — integração concluída em 24/11/2026
+
+### Objetivo
+
+Permitir que o executável Windows da CLI seja executado em máquinas que não tenham MinGW instalado, eliminando as dependências externas `libstdc++-6.dll` e `libgcc_s_seh-1.dll`, sem alterar a arquitetura do projeto ou introduzir vinculação estática global.
+
+### Alteração permanente no CMake
+
+Foi integrada ao `CMakeLists.txt` raiz, imediatamente após a vinculação de `jack_cli` com `jack_core`, a seguinte condição:
+
+```cmake
+# Vincula estaticamente os runtimes GCC somente no executável CLI
+# em builds Windows com compilador GNU (MinGW).
+# A dependência libwinpthread-1.dll permanece externa e deve ser
+# considerada no empacotamento da distribuição Windows.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_options(jack_cli PRIVATE
+        -static-libgcc
+        -static-libstdc++
+    )
+endif()
+```
+
+**Escopo e decisões preservadas:**
+
+- As opções são aplicadas somente ao alvo `jack_cli`, por meio de `target_link_options(... PRIVATE ...)`.
+- A condição limita a alteração a builds Windows com compilador GNU/MinGW.
+- Não foi usado `-static` genérico.
+- `jack_core`, GUI Qt, opções globais de compilação, toolchain e padrão C++17 não receberam alterações por essa decisão.
+- `libwinpthread-1.dll` permanece uma dependência externa intencional e deve acompanhar o executável na distribuição Windows.
+- Não foi criada regra automática de empacotamento; a inclusão da DLL é uma etapa explícita do procedimento de release.
+- O arquivo auxiliar experimental de vinculação total (`-static`) não faz parte da solução e não deve ser utilizado.
+
+### Ambiente e build de validação registrados
+
+Ambiente Windows informado e utilizado pelo responsável:
+
+- Toolchain MinGW Qt GCC 13.1.0: `C:\Qt\Tools\mingw1310_64\bin`.
+- CMake: 3.30.5, em `C:\Qt\Tools\CMake_64\bin`.
+- Gerador: `MinGW Makefiles`.
+- `BUILD_GUI=OFF` para gerar a CLI sem depender da GUI Qt.
+- Diretório de build independente: `build-static-runtime-integrated`.
+- Executável produzido: `build-static-runtime-integrated\jack_cli.exe`.
+
+Comandos de configuração e compilação utilizados:
+
+```powershell
+cmake -S . -B build-static-runtime-integrated `
+    -G "MinGW Makefiles" `
+    -DCMAKE_MAKE_PROGRAM="C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe" `
+    -DCMAKE_CXX_COMPILER="C:/Qt/Tools/mingw1310_64/bin/g++.exe" `
+    -DBUILD_GUI=OFF
+
+cmake --build .\build-static-runtime-integrated --target jack_cli --parallel
+```
+
+Resultado observado: configuração concluída e alvo `jack_cli` compilado com sucesso. O log mostrou a compilação de `jack_core`, seguida da compilação e linkedição de `jack_cli`.
+
+### Evidências da vinculação
+
+O arquivo `build-static-runtime-integrated\CMakeFiles\jack_cli.dir\link.txt` foi inspecionado. A linha de link efetiva continha:
+
+```text
+g++.exe -static-libgcc -static-libstdc++ ...
+```
+
+Dados do executável integrado registrado nesta validação:
+
+- Tamanho: 5.721.199 bytes.
+- SHA-256: `EE2E2BC5F8B0AA31576C1CA45EDB128D73DB86987F888126AD7874B698D98228`.
+
+A tabela de importação foi examinada com:
+
+```powershell
+& "C:\Qt\Tools\mingw1310_64\bin\objdump.exe" -p `
+    .\build-static-runtime-integrated\jack_cli.exe |
+    Select-String "DLL Name"
+```
+
+Dependências observadas:
+
+```text
+KERNEL32.dll
+msvcrt.dll
+libwinpthread-1.dll
+```
+
+Portanto, `libstdc++-6.dll` e `libgcc_s_seh-1.dll` não aparecem como dependências do executável integrado. A DLL `libwinpthread-1.dll` foi localizada em `C:\Qt\Tools\mingw1310_64\bin\libwinpthread-1.dll`, com 53.248 bytes.
+
+### Testes funcionais comparativos executados
+
+O executável integrado foi comparado com o executável original preservado em `build-cli\jack_cli.exe`. As saídas de compilação foram direcionadas a diretórios separados para evitar sobrescrita.
+
+1. **Ajuda (`--help`):** executou com sucesso no binário integrado. A apresentação de caracteres acentuados no terminal permaneceu corrompida da mesma forma observada no build original; não foi identificada regressão atribuível à vinculação.
+2. **Compilação individual:** `tests\inputs\validos\teste_chamadas_output.jack` foi compilado pelos dois executáveis. Ambos retornaram código `0`; os arquivos `.vm` tinham 703 bytes e `fc.exe /b` confirmou que eram idênticos. SHA-256 da saída: `67C1025C7673D43835B0F0CCD932F17B42124EBEC7A3D58E04EF2B6E1DF2F679`.
+3. **Compilação em lote:** `nand2tetris\projects\10\ExpressionLessSquare` foi compilado pelos dois executáveis. Ambos compilaram três arquivos, sem falhas, com código `0`. `Main.vm`, `Square.vm` e `SquareGame.vm` foram comparados individualmente com `fc.exe /b`; nenhum apresentou diferença.
+4. **Entrada sintaticamente inválida:** `tests\inputs\invalidos\teste_classe_incompleta.jack` produziu o mesmo diagnóstico nos dois executáveis (linha 1, coluna 7, token `{` inesperado), resumo de zero compilados e uma falha, código de saída `1`. Nenhum dos diretórios de saída recebeu arquivo `.vm`.
+5. **Destino de saída inválido:** foi usado um arquivo comum chamado `destino-bloqueado` como destino, impedindo a criação/preparação do diretório. Os dois executáveis produziram o mesmo diagnóstico `Not a directory` e código de saída `3`.
+
+Os testes demonstram equivalência nos cenários exercitados; não constituem prova matemática de ausência de regressões em todos os programas e ambientes.
+
+### Teste em Windows sem MinGW
+
+O responsável informou que preparou e executou o pacote em um ambiente Windows sem MinGW, contendo o executável `jack_cli.exe` e `libwinpthread-1.dll`, sem incluir `libstdc++-6.dll` ou `libgcc_s_seh-1.dll`. O usuário confirmou: **“funcionou sem qualquer erros.”**
+
+Esse resultado é um relato de execução do responsável. Não foram registrados nesta conversa o modelo/versão exata do Windows, a configuração detalhada do ambiente, nem logs completos dessa execução externa. Ainda assim, a confirmação direta atende ao objetivo prático do teste independente informado pelo usuário.
+
+### Procedimento obrigatório para repetir a cada release Windows da CLI
+
+A vinculação estática dos runtimes é uma configuração de build, não uma propriedade que deve ser presumida para qualquer executável. A cada release, gerar novamente a CLI usando o `CMakeLists.txt` com a condição acima e repetir as verificações abaixo:
+
+1. Configurar um diretório de build limpo ou independente com Windows + MinGW/GNU e `BUILD_GUI=OFF`, indicando explicitamente o `g++.exe` e o `mingw32-make.exe` da mesma instalação MinGW.
+2. Compilar o alvo `jack_cli` com `cmake --build <diretorio-build> --target jack_cli --parallel`.
+3. Inspecionar `CMakeFiles\jack_cli.dir\link.txt` e confirmar que a linha de link contém `-static-libgcc` e `-static-libstdc++`.
+4. Inspecionar a tabela de importação do novo executável com `objdump -p` e confirmar que `libstdc++-6.dll` e `libgcc_s_seh-1.dll` não aparecem. Registrar as demais dependências.
+5. Incluir `libwinpthread-1.dll` correspondente à mesma instalação/toolchain MinGW usada na compilação. Não incluir `libstdc++-6.dll` nem `libgcc_s_seh-1.dll` se a inspeção confirmar sua ausência.
+6. Testar `jack_cli.exe --help` e uma compilação real.
+7. Comparar, quando aplicável, saídas `.vm` do release com as do build de referência, incluindo pelo menos um caso individual e um lote representativo.
+8. Testar o pacote em ambiente Windows independente, sem MinGW instalado ou disponível no `PATH`, contendo somente o executável, `libwinpthread-1.dll` e os arquivos de entrada necessários ao teste.
+9. Registrar versão do toolchain, comando de build, hash SHA-256 do executável, dependências PE, arquivos incluídos no pacote e resultado do teste independente.
+
+Exemplo de inspeção de dependências:
+
+```powershell
+& "<caminho-do-MinGW>\objdump.exe" -p `
+    .\<diretorio-build>\jack_cli.exe |
+    Select-String "DLL Name"
+```
+
+**Critério de distribuição:** não considerar a CLI Windows validada para release apenas porque compilou. Exigir a confirmação das flags de link, a inspeção das DLLs importadas e o teste do pacote em Windows sem MinGW. A dependência `libwinpthread-1.dll` deve permanecer explícita no pacote.
+
+### Estado da fase
+
+A integração permanente das opções de vinculação estática no CMake e a validação funcional descrita acima foram concluídas. O teste em Windows sem MinGW também foi confirmado pelo responsável. A alteração está tecnicamente validada para os cenários executados e pode ser considerada concluída no escopo desta fase.
+
+Não foi realizado commit, tag, release ou push nesta atividade.
 
 ---
 
@@ -203,6 +344,14 @@ O usuário repetiu a compilação oficial de Square e obteve o mesmo resultado: 
 - Registrados resultados relatados pelo usuário no VM Emulator desktop e no emulador online oficial.
 - Registrada a decisão de encerrar a fase sem correção especulativa.
 - Nenhum commit, tag, release ou push foi realizado por esta atividade.
+
+## 24/11/2026 — Registro da integração de runtimes GCC e revisão do handoff
+
+- Registrada a integração e validação da vinculação estática dos runtimes GCC no `jack_cli` para builds Windows com MinGW.
+- Incluídos os comandos de configuração/build, evidências de link e dependências PE, testes comparativos e procedimento para futuras distribuições Windows.
+- Reposicionada a seção de vinculação estática antes do registro de mudanças, preservando a sequência estrutural do documento.
+- O status do comparador de XML foi marcado como não confirmado no checkout atual; o handoff anterior o registrava como pendente, mas não foi fornecido checkout ou evidência atualizada para confirmar esse estado.
+- Nenhuma operação Git foi realizada.
 
 ## Histórico anterior preservado
 

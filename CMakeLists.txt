@@ -225,3 +225,13 @@ target_link_libraries(jack_cli PRIVATE
 
 
 
+# Vincula estaticamente os runtimes GCC somente no executável CLI
+# em builds Windows com compilador GNU (MinGW).
+# A dependência libwinpthread-1.dll permanece externa e deve ser
+# considerada no empacotamento da distribuição Windows.
+if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_options(jack_cli PRIVATE
+        -static-libgcc
+        -static-libstdc++
+    )
+endif()

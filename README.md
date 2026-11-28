@@ -4,8 +4,8 @@ Compilador para a linguagem **Jack**, desenvolvido em C++ com
 arquitetura modular e interfaces gráfica e de linha de comando.
 
 O projeto implementa análise léxica e sintática, construção de AST,
-geração de representações XML e geração de código para a máquina virtual
-Jack (VM). Sua arquitetura separa o núcleo de processamento das
+geração de representações XML, comparação estrutural de documentos XML e
+geração de código para a máquina virtual Jack (VM). Sua arquitetura separa o núcleo de processamento das
 interfaces de execução e compartilha os componentes do núcleo utilizados
 por cada fluxo, mantendo as capacidades específicas de cada interface.
 
@@ -75,10 +75,25 @@ futuros](#escopo-atual-e-trabalhos-futuros) e detalhados em
     sintática.
 -   Exportação dos documentos XML.
 
+### Comparação de XML
+
+-   Comparação estrutural entre XML léxico e XML sintático gerados pelo
+    JackCompiler e seus documentos de referência.
+-   Verificação da estrutura, ordem dos elementos, atributos e conteúdo
+    textual, sem depender de igualdade textual ou de formatação idêntica.
+-   Identificação de divergências e apresentação de seus caminhos
+    estruturais. DTD efetivo é rejeitado.
+
+A comparação está disponível no menu interativo da CLI, nas opções 10
+(XML léxico) e 11 (XML sintático). Cada operação solicita os caminhos do
+arquivo de referência e do arquivo gerado.
+
 ### Interface de linha de comando
 
 -   Execução das análises léxica, sintática e completa.
--   Exportação dos XML léxico e sintático.
+-   Exportação dos XML léxico e sintático, com nomes sugeridos distintos
+    (`_lexico.xml` e `_sintatico.xml`).
+-   Comparação dos XML léxico e sintático com documentos de referência.
 -   Execução automatizada de testes com arquivos válidos e inválidos.
 -   Processamento em lote de arquivos Jack, com apresentação
     individualizada dos resultados e consolidação das estatísticas.
@@ -108,7 +123,7 @@ O projeto é organizado em três módulos principais:
 
 | Módulo | Responsabilidade |
 |---|---|
-| `core` | Núcleo do compilador. Contém os analisadores léxico e sintático, a AST, os tokens, os geradores XML e os componentes de tabela de símbolos e geração VM. |
+| `core` | Núcleo do compilador. Contém os analisadores léxico e sintático, a AST, os tokens, os geradores XML, o Comparador XML e os componentes de tabela de símbolos e geração VM. |
 | `cli` | Interface de linha de comando. Utiliza o núcleo do compilador sem depender do Qt e disponibiliza o fluxo não interativo de geração VM. |
 | `src` | Aplicação gráfica desenvolvida com Qt Widgets. Utiliza o núcleo compartilhado para análise léxica, análise sintática e visualização/exportação XML. |
 
@@ -173,20 +188,25 @@ sintática da linguagem Jack, a construção da árvore sintática abstrata,
 a geração das representações XML e a geração de código para a máquina
 virtual Jack por meio do fluxo não interativo da CLI.
 
-Os seis programas oficiais do Project 11 foram compilados com sucesso,
-mas sua validação funcional ocorreu em ambientes distintos: Seven,
-Average, ComplexArrays e ConvertToBin tiveram os cenários descritos
-aprovados no VM Emulator desktop; Pong e a movimentação de Square foram
-aprovados no emulador online oficial, conforme relato do desenvolvedor.
-O redimensionamento de Square não funcionou no emulador online, inclusive
-com o compilador oficial. Também foi observada uma anormalidade de teclado
-no VM Emulator desktop, cuja causa não foi determinada. A aprovação é
-limitada aos cenários executados e não representa certificação exaustiva
-da linguagem. Os resultados, ressalvas e origens das evidências estão
-detalhados em [Testes e validação](docs/tecnico/testes.md).
+Na regressão Windows W-12, os seis projetos oficiais do Project 11
+foram compilados com sucesso: 11 arquivos-fonte Jack foram processados e
+11 arquivos VM foram gerados. Os arquivos foram executados no VM Emulator
+desktop. Nos cenários funcionais registrados, Seven, ConvertToBin,
+Average e ComplexArrays foram aprovados. Pong também foi aprovado,
+conforme relato e evidências encaminhadas pelo responsável. Em Square, a
+movimentação foi aprovada, mas o redimensionamento não funcionou. Essa
+limitação também foi reproduzida com o compilador oficial do Nand2Tetris
+no emulador online, conforme comparação relatada anteriormente pelo
+Desenvolvedor; portanto, não há evidência para classificá-la como defeito
+confirmado do JackCompiler. Esses resultados se limitam aos cenários
+avaliados e não representam aprovação integral de todas as
+funcionalidades dos seis programas. Os resultados, ressalvas e origens
+das evidências estão detalhados em [Testes e validação](docs/tecnico/testes.md).
 
-Os resultados de validação ainda não estão associados a um hash de
-commit específico. A existência de `SymbolTable` e dos componentes de
+Os resultados desta etapa de comparação XML e regressão VM ainda não
+estão associados a um hash de commit específico; a implementação e a
+avaliação foram concluídas, mas a publicação no GitHub depende do processo
+de versionamento. A existência de `SymbolTable` e dos componentes de
 geração VM não comprova, por si só, uma etapa de análise semântica
 completa. O projeto mantém uma estrutura modular que permite a ampliação
 gradual de suas funcionalidades e a incorporação de novas etapas do

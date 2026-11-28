@@ -96,6 +96,81 @@ Para executar o programa:
 
 A CLI pode ser compilada e executada sem a instalação do Qt.
 
+O Comparador XML utiliza a cópia de pugixml 1.16 mantida em
+`third_party/pugixml/`, integrada pelo CMake. Não é necessário instalar
+essa biblioteca separadamente para compilar o projeto.
+
+### 3.4. Testes de regressão do Comparador XML
+
+O projeto disponibiliza um conjunto opcional de testes de regressão do
+Comparador XML. Para habilitá-lo, configure o CMake com
+`BUILD_XML_COMPARATOR_REGRESSION_TESTS=ON`:
+
+```powershell
+& "C:\Qt\Tools\CMake_64\bin\cmake.exe" -S . -B build-cli -DBUILD_GUI=OFF -DBUILD_XML_COMPARATOR_REGRESSION_TESTS=ON -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER="C:/Qt/Tools/mingw1310_64/bin/g++.exe" -DCMAKE_MAKE_PROGRAM="C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe"
+```
+
+Compile a CLI e o alvo de regressão:
+
+```powershell
+& "C:\Qt\Tools\CMake_64\bin\cmake.exe" --build build-cli --target jack_cli comparadorxml_regression_tests
+```
+
+Execute o teste registrado no CTest:
+
+```powershell
+& "C:\Qt\Tools\CMake_64\bin\ctest.exe" --test-dir build-cli --output-on-failure
+```
+
+A opção está desativada por padrão. Quando habilitada, o projeto cria
+`comparadorxml_regression_tests` e registra no CTest um teste que reúne
+quatro casos relacionados à distinção entre `<!DOCTYPE` em comentário
+ou CDATA e uma declaração DTD efetiva. O resultado histórico de 1/1
+teste aprovado refere-se a esse conjunto específico, não à execução de
+toda a suíte do projeto.
+
+### 3.5. Distribuição da CLI no Windows com MinGW
+
+Em builds Windows com compilador GNU/MinGW, o CMake aplica
+`-static-libgcc` e `-static-libstdc++` somente ao alvo `jack_cli`.
+Essas opções eliminam as dependências externas `libgcc_s_seh-1.dll` e
+`libstdc++-6.dll` nos executáveis em que a inspeção da tabela de
+importação confirmar essa condição.
+
+A dependência `libwinpthread-1.dll` permanece externa e deve acompanhar
+o executável na distribuição. Utilize a DLL correspondente à mesma
+instalação/toolchain MinGW usada para compilar o programa. Não utilize
+`-static` genérico como substituto dessas opções.
+
+Para validar um pacote antes de distribuí-lo:
+
+1. configure um diretório de build limpo ou independente com Windows,
+   MinGW/GNU e `BUILD_GUI=OFF`;
+2. compile o alvo `jack_cli`;
+3. confirme em
+   `CMakeFiles\jack_cli.dir\link.txt` a presença de
+   `-static-libgcc` e `-static-libstdc++`;
+4. inspecione as dependências do executável com `objdump -p` e confirme
+   a ausência de `libgcc_s_seh-1.dll` e `libstdc++-6.dll`;
+5. inclua `libwinpthread-1.dll` da mesma toolchain;
+6. execute `jack_cli.exe --help` e uma compilação real;
+7. teste o pacote em outro Windows sem MinGW instalado ou disponível
+   no `PATH`.
+
+Exemplo de inspeção:
+
+```powershell
+& "C:\Qt\Tools\mingw1310_64\bin\objdump.exe" -p `
+    .\build-cli\jack_cli.exe |
+    Select-String "DLL Name"
+```
+
+A validação registrada em 28/11/2026 executou o pacote com
+`jack_cli.exe` e `libwinpthread-1.dll` em outro computador Windows 11,
+sem instalação de Qt, CMake ou MinGW. O resultado foi positivo no
+ambiente testado, mas não deve ser generalizado para todas as versões,
+arquiteturas ou configurações do Windows.
+
 ## 4. Compilação da interface gráfica (GUI)
 
 A configuração da GUI exige os componentes Qt Widgets e Qt Xml, conforme

@@ -190,3 +190,110 @@ A atuação do UX Designer é de estudo e especificação. Não inclui implement
 As propostas produzidas por essa frente não devem ser interpretadas como funcionalidades implementadas ou decisões aprovadas. Após aprovação do responsável pelo projeto, as especificações devem ser encaminhadas ao Analista, que ficará responsável por formalizar requisitos e critérios de aceitação para as etapas posteriores.
 
 Esta formalização registra uma organização de trabalho do projeto. **Não documenta alteração implementada na GUI**, nem confirma que as oportunidades de melhoria identificadas pelo UX Designer já tenham sido incorporadas ao software.
+
+
+## Atualização de estado — Comparador XML e regressão funcional
+
+**Data de referência:** 28/11/2026.
+
+Esta seção atualiza a fotografia histórica de 20/11/2026 e os registros
+posteriores de geração VM. O estado de branch, commit e working tree
+continua sujeito à conferência do GitKeeper no checkout vigente.
+
+### Comparador XML
+
+O Comparador XML foi implementado no `jack_core` e integrado ao menu
+interativo da CLI. Os principais arquivos registrados são:
+
+- `core/include/jack/xml/comparadorxml.h`;
+- `core/src/xml/comparadorxml.cpp`;
+- `cli/include/jack/cli/application.h`;
+- `cli/src/application.cpp`;
+- `third_party/pugixml/`, com pugixml 1.16.
+
+A dependência é disponibilizada pelo alvo estático `jack_pugixml` e
+vinculada privadamente ao `jack_core`. Os tipos pugixml não são expostos
+na interface pública do comparador. A opção CMake
+`BUILD_XML_COMPARATOR_REGRESSION_TESTS`, desativada por padrão, habilita
+o alvo `comparadorxml_regression_tests` e seu registro no CTest.
+
+A comparação é estrutural e oferece duas modalidades:
+
+- XML léxico, com raiz esperada `<tokens>`;
+- XML sintático, com raiz esperada `<class>`.
+
+São considerados a hierarquia e a ordem dos elementos, atributos e
+conteúdo textual. A ordem textual dos atributos não é significativa.
+Somente whitespace estrutural entre elementos pode ser ignorado; o
+conteúdo textual dos nós terminais é preservado integralmente.
+Comentários, declaração XML e instruções de processamento são
+desconsiderados. DTD efetivo é rejeitado e recursos externos não são
+resolvidos.
+
+A interface final da CLI disponibiliza:
+
+- **opção 10 — Comparar XML léxico**;
+- **opção 11 — Comparar XML sintático**.
+
+Cada operação solicita o caminho do XML de referência e o caminho do
+XML gerado. Os arquivos podem estar em diretórios distintos e não
+precisam compartilhar nomes. A proposta anterior de comando externo
+`compare-xml`, comparação por diretórios e processamento em lote foi
+substituída pela interface interativa aprovada pelo responsável; essas
+alternativas não constituem pendências.
+
+As exportações da CLI sugerem nomes distintos: `Nome_lexico.xml` e
+`Nome_sintatico.xml`, evitando colisão entre os documentos.
+
+### Validação registrada em 28/11/2026
+
+- DEF-XML-01 — nomes distintos dos XML exportados: aprovado.
+- DEF-XML-02 — distinção entre DTD efetivo e a sequência textual em
+  comentário/CDATA: aprovado.
+- Testes automatizados: quatro casos de regressão reunidos no alvo
+  `comparadorxml_regression_tests`; CTest apresentou 1/1 teste aprovado.
+- Avaliação funcional do comparador: opções 10 e 11, equivalência de
+  ArrayTest, caminhos com espaços, arquivos inexistentes, diretório no
+  lugar de arquivo, XML malformado, raiz incompatível, retorno ao menu,
+  repetição das exportações e falha real de permissão de leitura foram
+  aprovados nos cenários reportados.
+- Distribuição Windows: pacote com `jack_cli.exe` e
+  `libwinpthread-1.dll` executado em outro Windows 11 sem Qt, CMake ou
+  MinGW instalados. A aprovação se limita ao ambiente testado.
+- Regressão VM W-12: seis projetos oficiais compilados, com 11 arquivos
+  Jack processados e 11 arquivos VM gerados. Os seis programas tiveram
+  resultado funcional positivo no escopo observado. Square movimentou-se,
+  mas não redimensionou; o mesmo comportamento havia sido reproduzido
+  com o compilador oficial e não foi classificado como defeito confirmado
+  do JackCompiler.
+- W-13: falha real de permissão de leitura identificada para o XML
+  gerado; o mesmo cenário não foi demonstrado para o XML de referência.
+
+A proveniência dos testes Windows deve ser preservada conforme o
+handoff do Testador: os cenários W-00 a W-13 foram executados pelo
+responsável e apresentados ao Testador por transcrições, saídas e
+evidências, que fundamentaram o parecer consolidado. Não atribuir
+automaticamente a execução direta ao Testador.
+
+### Portabilidade da CLI Windows
+
+A configuração do CMake aplica `-static-libgcc` e
+`-static-libstdc++` exclusivamente ao alvo `jack_cli`, em builds Windows
+com compilador GNU/MinGW. A dependência `libwinpthread-1.dll` permanece
+externa e deve acompanhar o executável. O procedimento de release exige
+inspecionar as flags de link, as DLLs importadas e testar o pacote em
+Windows independente sem MinGW disponível.
+
+### Situação de implementação e publicação
+
+O handoff atualizado do Desenvolvedor declara concluídas a
+implementação do Comparador XML, as correções DEF-XML-01/02, a
+readequação da interface e a avaliação independente, sem pendência de
+código identificada para essa fase.
+
+O mesmo handoff registra que não foram realizados commit, tag, release
+ou push. Essa informação descreve a etapa reportada e não substitui a
+conferência do estado Git atual. Antes da publicação, o GitKeeper deve
+verificar branch, HEAD, working tree, diff e staging, separar as
+alterações por escopo e solicitar autorização conforme o protocolo do
+projeto.

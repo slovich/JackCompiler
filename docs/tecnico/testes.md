@@ -2,11 +2,9 @@
 
 ## 1. Objetivo
 
-Este documento descreve a estratégia de testes do **JackCompiler**, incluindo os testes funcionais por arquivos `.jack`, os testes independentes dos componentes `SymbolTable`, `VMWriter` e `VMCodeGenerator`, e a validação funcional da geração de código VM integrada à CLI.
+Este documento descreve a estratégia de testes do **JackCompiler**, incluindo os testes funcionais por arquivos `.jack`, os testes independentes dos componentes `SymbolTable`, `VMWriter` e `VMCodeGenerator`, a validação funcional da geração de código VM integrada à CLI e os testes de regressão e avaliação funcional do Comparador XML.
 
-Os testes por arquivos verificam o comportamento conjunto do analisador léxico e do analisador sintático. Os testes independentes exercitam comportamentos específicos dos componentes do núcleo. A validação funcional integrada utiliza os seis programas oficiais do Project 11 do Nand2Tetris.
-
-Essas atividades não devem ser confundidas com uma suíte integrada a um framework. Os registros consultados indicam que os testes independentes de `SymbolTable`, `VMWriter` e `VMCodeGenerator` foram compilados e executados fora do CMake de produção; não há registro de integração desses executáveis ao CTest ou a frameworks como GoogleTest e Catch2.
+Os testes por arquivos verificam o comportamento conjunto do analisador léxico e do analisador sintático. Os testes independentes exercitam comportamentos específicos dos componentes do núcleo. A validação funcional integrada da geração VM utiliza os seis programas oficiais do Project 11 do Nand2Tetris. O Comparador XML possui um alvo opcional de regressão integrado ao CTest; os demais testes independentes de componentes não estão integrados a frameworks como GoogleTest ou Catch2.
 
 ## 2. Organização dos arquivos de teste
 
@@ -245,7 +243,8 @@ Essa execução independente não comprova, por si só, a integração com parse
 
 ### 8.4 `VMCodeGenerator` e integração funcional com a CLI
 
-A geração VM e sua integração com a CLI foram submetidas a validação utilizando os seis programas oficiais do Project 11 do Nand2Tetris:
+A geração VM e sua integração com a CLI foram submetidas a validação
+utilizando os seis programas oficiais do Project 11 do Nand2Tetris:
 
 - Seven;
 - Average;
@@ -254,25 +253,49 @@ A geração VM e sua integração com a CLI foram submetidas a validação utili
 - Pong;
 - Square.
 
-Os seis diretórios foram compilados com código de saída zero e produziram 11 arquivos `.vm`. A compilação dos seis programas não deve ser confundida com aprovação funcional uniforme: os resultados de execução variaram conforme o emulador e a origem da evidência.
+Na regressão Windows W-12, o Testador registrou 11 arquivos-fonte
+Jack distribuídos pelos seis projetos. Todos os diretórios foram compilados
+com código de saída zero e produziram a quantidade esperada de arquivos
+VM.
 
-| Programa/cenário | Ambiente | Resultado observado |
-|---|---|---|
-| Seven | VM Emulator desktop | Valor 7 verificado; aprovado no cenário testado. |
-| Average | VM Emulator desktop | Média 20 verificada para três valores de entrada: 10, 20 e 30; aprovado no cenário testado. |
-| ComplexArrays | VM Emulator desktop | Resultados 5, 40, 0, 77 e 110 verificados; aprovado nos casos apresentados. |
-| ConvertToBin | VM Emulator desktop | Após inicializar `RAM[8000]` com 8001, os 16 bits foram verificados em `RAM[8001..8016]`; aprovado no cenário testado. |
-| Pong | VM Emulator desktop | Comportamento inconsistente da bola e ausência de resposta observável da raquete; falha observada nesse ambiente. |
-| Pong | Emulador online oficial | Bola e raquete funcionaram; resultado relatado pelo desenvolvedor, não reproduzido pessoalmente pelo Testador. |
-| Square — movimentação | VM Emulator desktop | O quadrado foi desenhado, mas as setas não produziram movimentação observável; falha observada nesse ambiente. |
-| Square — movimentação | Emulador online oficial | Movimentação nas quatro direções; resultado relatado pelo desenvolvedor, não reproduzido pessoalmente pelo Testador. |
-| Square — redimensionamento | Emulador online oficial | Não funcionou também com o compilador oficial no mesmo emulador; não há evidência para atribuir essa limitação ao JackCompiler. |
+| Projeto | Arquivos Jack | Arquivos VM esperados/gerados | Resultado |
+|---|---:|---:|---|
+| Seven | 1 | 1/1 | PASS |
+| ConvertToBin | 1 | 1/1 | PASS |
+| Square | 3 | 3/3 | PASS* |
+| Average | 1 | 1/1 | PASS |
+| Pong | 4 | 4/4 | PASS |
+| ComplexArrays | 1 | 1/1 | PASS |
+| **Total** | **11** | **11/11** | **PASS** |
 
-No VM Emulator desktop foi observado comportamento anormal na leitura de teclado. O emulador indicava visualmente o pressionamento, mas os programas nem sempre detectavam a entrada. No `KeyboardTest` oficial, foi relatado que a tecla precisou permanecer pressionada por aproximadamente dez segundos para que o evento fosse registrado. O ambiente informado utilizava Java 8 Update 513 e JVM Client de 32 bits; a causa não foi determinada e não deve ser atribuída ao Java, ao Windows ou ao JackCompiler.
+\* Em Square, `PASS` indica que os três arquivos Jack foram compilados e
+os três arquivos VM esperados foram gerados. Na avaliação funcional, a
+movimentação foi aprovada, mas o redimensionamento não funcionou; essa
+limitação também foi observada com o compilador oficial, conforme
+detalhado na ressalva abaixo.
 
-A hipótese anterior de perda do contexto de `pointer 0` em chamadas encadeadas não foi confirmada e permanece encerrada para esta fase.
+Os arquivos foram executados no VM Emulator desktop. Os resultados
+funcionais registrados foram:
 
-**Resultado registrado:** 6/6 diretórios compilados com sucesso e 11 arquivos VM gerados; quatro programas aprovados nos cenários funcionais executados no emulador desktop; Pong e movimentação de Square aprovados no emulador online conforme relato do desenvolvedor. O redimensionamento de Square permaneceu sem funcionamento também com o compilador oficial no mesmo emulador online. Essa validação não equivale a certificação completa da linguagem Jack ou de todas as construções possíveis.
+| Programa | Resultado observado |
+|---|---|
+| Seven | Saída `7`; aprovado. |
+| ConvertToBin | Os 16 bits da representação binária de 8001 foram verificados em `RAM[8001..8016]`; aprovado. |
+| Average | Com entradas 10, 20 e 30, apresentou `Average is 20`; aprovado. |
+| ComplexArrays | Os cinco resultados observados (5, 40, 0, 77 e 110) corresponderam aos esperados; aprovado. |
+| Pong | O responsável informou que todos os testes funcionaram no VM Emulator desktop; aprovado conforme relato e evidências encaminhadas. |
+| Square | O quadrado respondeu aos comandos direcionais; movimentação aprovada. Os comandos de redimensionamento não funcionaram. |
+
+**Ressalva de Square:** o comportamento de redimensionamento também
+foi reproduzido com o compilador oficial do Nand2Tetris no emulador
+online, conforme comparação relatada anteriormente pelo Desenvolvedor.
+Não há evidência para classificar essa limitação como defeito confirmado
+do JackCompiler.
+
+A avaliação concluiu que não foram identificadas regressões funcionais
+na geração VM associadas às alterações do Comparador XML, dentro dos
+projetos e cenários avaliados. Isso não constitui prova de correção de
+todas as construções da linguagem Jack.
 
 ### 8.5 Limites da cobertura documentada
 
@@ -281,11 +304,116 @@ As validações descritas neste documento possuem escopos distintos:
 - os arquivos de `tests/inputs/validos` e `tests/inputs/invalidos` verificam o fluxo léxico e sintático;
 - os testes independentes de `SymbolTable` e `VMWriter` verificam comportamentos específicos desses componentes;
 - os testes independentes de `VMCodeGenerator` exercitam a tradução de ASTs construídas diretamente, sem substituir a validação integrada;
-- a compilação dos seis programas Project 11 verifica a integração da geração VM com a CLI; a execução nos emuladores verifica apenas os cenários funcionais descritos.
+- a compilação dos seis programas Project 11 verifica a integração da geração VM com a CLI; a execução no emulador verifica apenas os cenários funcionais descritos;
+- os testes do Comparador XML verificam os casos automatizados de DTD e os cenários funcionais explicitamente relacionados na seção seguinte.
 
 Não se deve interpretar os resultados como cobertura exaustiva de todos os comandos, expressões, chamadas, tipos ou situações da linguagem Jack. Também não comprovam uma etapa independente e completa de análise semântica.
 
-Os testes independentes dos componentes foram compilados e executados fora do CMake de produção. Os registros consultados não demonstram integração desses executáveis ao GoogleTest, Catch2 ou CTest.
+Os testes independentes dos componentes foram compilados e executados fora do CMake de produção, exceto pelo alvo opcional de regressão do Comparador XML, descrito adiante. Os registros não demonstram integração desses executáveis independentes ao GoogleTest ou Catch2.
+
+### 8.6 Comparador XML — regressão automatizada
+
+O projeto inclui o teste `tests/comparadorxml_regression_tests.cpp`, disponibilizado por meio da opção CMake `BUILD_XML_COMPARATOR_REGRESSION_TESTS`, desativada por padrão.
+
+Quando habilitada, a configuração cria o alvo `comparadorxml_regression_tests` e registra um teste no CTest. O conjunto automatizado contém quatro casos:
+
+1. a sequência `<!DOCTYPE fake>` dentro de comentário deve ser aceita;
+2. a sequência `<!DOCTYPE fake>` dentro de CDATA deve ser aceita como conteúdo;
+3. um DTD efetivo no XML de referência deve ser rejeitado;
+4. um DTD efetivo no XML gerado, inclusive com identificador externo, deve ser rejeitado.
+
+Comandos registrados para configurar, compilar e executar os testes no Windows:
+
+```powershell
+cmake -S . -B build-cli -DBUILD_GUI=OFF -DBUILD_XML_COMPARATOR_REGRESSION_TESTS=ON
+cmake --build build-cli --target jack_cli comparadorxml_regression_tests
+ctest --test-dir build-cli --output-on-failure
+```
+
+Na execução registrada em 28/11/2026, os alvos `jack_pugixml`,
+`jack_core`, `jack_cli` e `comparadorxml_regression_tests` foram
+compilados com sucesso. O CTest apresentou **1/1 teste aprovado**. Esse
+único teste registrado agrupa os quatro casos descritos; não significa
+que toda a suíte de testes do projeto tenha sido executada pelo CTest.
+
+### 8.7 Comparador XML — avaliação funcional no Windows
+
+A avaliação funcional foi consolidada pelo Testador em 28/11/2026,
+abrangendo as opções interativas 10 e 11, os defeitos DEF-XML-01 e
+DEF-XML-02, a distribuição Windows e a regressão VM W-12.
+
+A proveniência deve ser preservada: o relatório do Testador informa que
+os cenários identificados W-00 a W-13 foram executados pelo responsável
+no computador Windows e apresentados ao Testador por transcrições,
+saídas e evidências. Não descrever esses testes como execução direta do
+Testador. W-00 identifica especificamente a inicialização da CLI no
+ambiente Windows independente. A validação geral da distribuição não
+possui identificador individual próprio. W-13 identifica exclusivamente
+o teste de falha de permissão de leitura do arquivo XML gerado.
+
+#### Resultados do Comparador XML
+
+| Cenário | Resultado |
+|---|---|
+| W-00 — Inicialização da CLI em Windows independente, sem ferramentas de desenvolvimento | PASS |
+| Comparação léxica de ArrayTest | PASS — documentos equivalentes |
+| Comparação sintática de ArrayTest | PASS — documentos equivalentes |
+| Caminhos contendo espaços | PASS |
+| Arquivo de referência inexistente | PASS — erro específico |
+| Arquivo gerado inexistente | PASS — erro específico |
+| Diretório informado no lugar do arquivo de referência | PASS — rejeitado como não sendo arquivo regular |
+| XML malformado | PASS — diagnóstico com linha e coluna |
+| Raiz XML incompatível | PASS |
+| Retorno ao menu após comparação ou erro | PASS |
+| Repetição das exportações léxica e sintática | PASS |
+| Comentário, CDATA e DTD efetivo | PASS |
+| Falha real de permissão de leitura do arquivo gerado (W-13) | PASS |
+
+**DEF-XML-01 — nomes distintos dos XML exportados:** aprovado. As
+exportações léxica e sintática produzem, respectivamente,
+`Nome_lexico.xml` e `Nome_sintatico.xml`, evitando colisão e
+sobrescrita entre os dois documentos.
+
+**DEF-XML-02 — identificação de DTD:** aprovado. A sequência
+`<!DOCTYPE fake>` dentro de comentário ou CDATA é aceita; uma declaração
+DTD efetiva é rejeitada. O parser não deve resolver entidades ou
+recursos externos.
+
+A falha real de permissão W-13 foi demonstrada para o arquivo XML
+gerado: a aplicação informou que não conseguiu abrir o arquivo,
+permaneceu funcional e retornou ao menu. O relatório não demonstra o
+mesmo teste de permissão negada para o arquivo de referência.
+
+#### Distribuição Windows independente — validação sem ID próprio
+
+A validação geral da distribuição Windows não possui identificador
+individual de teste. O cenário W-00 registra especificamente a
+inicialização da CLI no ambiente independente. O pacote contendo
+`jack_cli.exe` e `libwinpthread-1.dll` foi executado em outro computador
+com Windows 11, sem instalação de Qt, CMake ou MinGW. O executável
+iniciou e executou os cenários avaliados.
+
+O resultado valida o pacote no ambiente específico testado. Não deve
+ser generalizado para todas as versões, arquiteturas ou configurações
+possíveis do Windows. O relatório não apresenta hash coletado no
+computador independente para comparação criptográfica com o binário
+originalmente encaminhado.
+
+#### Proveniência e limites
+
+- O pacote recebido pelo Testador foi identificado por SHA-256
+  `13eb2172364e208cca062400e4ac6216ae7958e93f4d9f6149fd59944ae790e3`.
+  Esse hash identifica o ZIP recebido, não o commit Git nem o código-fonte.
+- Não foi fornecido commit/hash Git correspondente ao executável
+  avaliado.
+- O cenário de diretório no lugar de arquivo foi demonstrado no campo
+  do XML de referência; não foi apresentado o mesmo caso no campo do
+  XML gerado.
+- O teste de permissão negada foi demonstrado para o arquivo gerado,
+  não para o arquivo de referência.
+- A aprovação é limitada à versão/pacote e aos cenários efetivamente
+  avaliados; não garante ausência de defeitos.
+
 
 ## 9. Recomendações para manutenção dos casos
 

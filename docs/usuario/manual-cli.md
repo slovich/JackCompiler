@@ -8,14 +8,14 @@ as funcionalidades do compilador diretamente pelo terminal.
 A CLI oferece dois modos de utilização:
 
 -   **Modo interativo:** apresenta um menu para seleção e visualização
-    de arquivos Jack, análise léxica, análise sintática, exportação de
-    XML e execução de testes individuais ou em lote.
+    de arquivos Jack, análise léxica, análise sintática, exportação e
+    comparação de XML e execução de testes individuais ou em lote.
 -   **Modo não interativo:** recebe argumentos na inicialização para
     compilar um arquivo Jack ou os arquivos Jack diretamente contidos em
     um diretório, gerando código para a máquina virtual Jack (VM).
 
 As opções do menu interativo são selecionadas durante a execução. A
-geração VM é acionada pelo modo não interativo, descrito na seção 3.10.
+geração VM é acionada pelo modo não interativo, descrito na seção 3.12.
 
 ## 2. Inicialização
 
@@ -46,6 +46,8 @@ No modo interativo, a aplicação apresenta o menu principal:
 7 - Exportar XML sintático
 8 - Executar testes
 9 - Testar arquivos Jack em lote
+10 - Comparar XML léxico
+11 - Comparar XML sintático
 0 - Sair
 ----------------------------------------
 Escolha uma opção:
@@ -144,14 +146,15 @@ analisador léxico.
 É necessário que exista uma análise léxica válida.
 
 O programa apresenta um destino sugerido, construído a partir do
-diretório e do nome do arquivo original, substituindo sua extensão por
-`.xml`.
+diretório e do nome-base do arquivo original, com o sufixo
+`_lexico.xml`. Essa nomenclatura distingue o XML léxico do XML sintático
+e evita que uma exportação sobrescreva a outra.
 
 Exemplo:
 
 ``` text
 Arquivo original: E:\Projetos\Jack\Main.jack
-Destino sugerido: E:\Projetos\Jack\Main.xml
+Destino sugerido: E:\Projetos\Jack\Main_lexico.xml
 ```
 
 O usuário pode:
@@ -170,8 +173,14 @@ pelo parser, construída a partir da AST.
 É necessário que exista uma análise sintática válida.
 
 O procedimento de escolha do destino é equivalente ao da exportação XML
-léxica: o programa sugere um caminho baseado no arquivo original e
-permite informar outro destino.
+léxica, mas utiliza o sufixo `_sintatico.xml`.
+
+Exemplo:
+
+``` text
+Arquivo original: E:\Projetos\Jack\Main.jack
+Destino sugerido: E:\Projetos\Jack\Main_sintatico.xml
+```
 
 ### 3.8. Executar testes
 
@@ -258,7 +267,56 @@ Ao final, é apresentado um resumo contendo:
 erro léxico ou sintático identificado em cada arquivo. Outros erros
 eventualmente existentes podem não ser apresentados.
 
-### 3.10. Compilar arquivos Jack em código VM
+### 3.10. Comparar XML léxico
+
+A opção 10 compara estruturalmente um XML léxico de referência com o XML
+léxico gerado pelo JackCompiler.
+
+A operação solicita, nesta ordem:
+
+1. o caminho do XML de referência;
+2. o caminho do XML gerado.
+
+Os arquivos podem estar em diretórios diferentes e não precisam ter o
+mesmo nome. Informe o caminho completo de cada arquivo. Caminhos com
+espaços são aceitos.
+
+O comparador verifica se os documentos são XML válidos e se possuem a
+raiz esperada para a representação léxica (`<tokens>`). A comparação
+considera a estrutura dos elementos, a ordem dos nós, os atributos e o
+conteúdo textual. A ordem em que os atributos aparecem no arquivo não é
+significativa. Diferenças de formatação e whitespace estrutural entre
+elementos não tornam, por si só, os documentos diferentes; o conteúdo
+textual dos nós terminais é preservado.
+
+Comentários, declaração XML e instruções de processamento são
+desconsiderados. Uma declaração DTD efetiva não é suportada e é
+rejeitada. A sequência textual `<!DOCTYPE` dentro de comentário ou CDATA
+não é tratada como uma declaração DTD.
+
+O resultado informa se os documentos são equivalentes ou apresenta as
+divergências estruturais encontradas. Quando há erro de parsing, a
+mensagem inclui a localização disponível, como linha e coluna. A
+aplicação também informa problemas de caminho, abertura ou leitura dos
+arquivos e retorna ao menu principal após a operação.
+
+### 3.11. Comparar XML sintático
+
+A opção 11 realiza a mesma operação para documentos XML sintáticos. O
+procedimento também solicita o caminho do XML de referência e, em
+seguida, o caminho do XML gerado.
+
+A raiz esperada para essa modalidade é `<class>`. Os arquivos podem
+estar em diretórios distintos e possuir nomes diferentes. As regras de
+comparação estrutural, tratamento de whitespace, comentários,
+instruções de processamento e rejeição de DTD são as mesmas descritas
+na opção 10.
+
+Utilize a modalidade correspondente ao tipo de documento: XML léxico
+com a opção 10 e XML sintático com a opção 11. A raiz incompatível com a
+modalidade selecionada é informada como documento incompatível.
+
+### 3.12. Compilar arquivos Jack em código VM
 
 Além das operações disponíveis no menu interativo, a CLI oferece um modo
 não interativo para gerar arquivos de código VM.
@@ -313,7 +371,7 @@ considerados. Subdiretórios não são percorridos.
 Esse modo é independente do menu interativo. Para consultar a sintaxe
 reconhecida pelo executável, utilize `--help` ou `-h`.
 
-### 3.11. Sair
+### 3.13. Sair
 
 No modo interativo, a opção 0 encerra a aplicação e apresenta a mensagem
 de encerramento.
@@ -342,20 +400,22 @@ Para analisar um arquivo individual, recomenda-se o seguinte fluxo:
 3.  Exibir o arquivo, se necessário;
 4.  Executar a análise completa;
 5.  Exportar o XML léxico ou sintático, caso desejado;
-6.  Encerrar a aplicação.
+6.  Comparar os XMLs exportados com as respectivas referências, utilizando
+    as opções 10 e 11;
+7.  Encerrar a aplicação.
 
 Para verificar léxica e sintaticamente vários arquivos de uma vez,
 utilize a opção 9. Para executar a coleção de testes organizada entre
 arquivos válidos e inválidos, utilize a opção 8. Para gerar código VM de
 um arquivo ou de um diretório, utilize o modo não interativo descrito na
-seção 3.10.
+seção 3.12.
 
 ## 6. Limitações da interface
 
 O menu interativo disponibiliza as análises léxica e sintática, a
-exportação de suas representações XML e as operações de teste descritas
-neste manual. A geração de código VM é disponibilizada separadamente
-pelo modo não interativo.
+exportação e comparação de XML e as operações de teste descritas neste
+manual. A geração de código VM é disponibilizada separadamente pelo modo
+não interativo.
 
 A existência da tabela de símbolos e de verificações utilizadas durante
 a geração VM não deve ser interpretada como comprovação de uma etapa de

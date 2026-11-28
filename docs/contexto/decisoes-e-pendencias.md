@@ -28,17 +28,21 @@
 - O parser rejeita tokens extras após a classe.
 - Expressões binárias são construídas com associatividade à esquerda, sem níveis de precedência separados na rotina examinada.
 
-## Correções documentais candidatas — ainda não aplicadas
+## Pendências documentais remanescentes da auditoria inicial
 
 1. `docs/instalacao/compilacao.md`: revisar a tabela de diretórios, que aparenta duplicar `build`/`build/` e listar diretórios de build distintos; comparar com a árvore real antes de editar.
 2. `docs/tecnico/linguagem-jack.md`: corrigir a formatação da tabela de operadores, preservando os dados e a terminologia.
 3. `docs/usuario/manual-gui.md`: deixar explícito que a navegação/seleção do arquivo e o acionamento do botão de seleção/análise são etapas distintas; a análise é executada pelo slot `on_pushButton_selecionar_clicked()`.
-4. `docs/usuario/manual-cli.md`: distinguir seleção de arquivo individual, opção 8 (testes classificados) e opção 9 (processamento em lote).
-5. `docs/tecnico/testes.md`: explicar a execução pela CLI e a ausência de integração CTest no CMake atual.
-6. `docs/tecnico/arquitetura.md`: conferir descrições de dependências, fluxo GUI/XML/AST e responsabilidades dos alvos.
-7. `README.md`: decidir se deve mencionar a pasta de contexto; não é obrigatório expor documentação operacional interna na página pública.
+4. `docs/usuario/manual-cli.md`: a distinção entre seleção individual, opção 8 e opção 9 foi preservada; a revisão de 28/11 acrescenta as opções 10/11 e a comparação XML.
+5. `docs/tecnico/testes.md`: atualizado para distinguir os testes independentes não integrados ao CTest do alvo opcional `comparadorxml_regression_tests`, habilitado por `BUILD_XML_COMPARATOR_REGRESSION_TESTS`.
+6. `docs/tecnico/arquitetura.md`: atualizado para incluir o Comparador XML, pugixml 1.16, o alvo `jack_pugixml`, a integração CLI e os testes opcionais.
+7. `README.md`: atualizado com o Comparador XML e os resultados recentes. Continua pendente apenas decidir se a página pública deve mencionar a pasta interna `docs/contexto/`.
 
-## Pendências de verificação
+## Pendências de verificação herdadas da auditoria inicial
+
+> Os itens abaixo foram registrados na auditoria de 20/11/2026 e não foram
+> reavaliados como parte do encerramento do Comparador XML em 28/11/2026.
+> Não devem ser confundidos com pendências de implementação dessa etapa.
 
 - Confirmar o trecho final do fluxo GUI após a linha de sucesso sintático, especialmente a apresentação de falha sintática e mensagens finais.
 - Confirmar a parte final do resumo apresentado pela opção 9, pois a extração fornecida terminou antes do fim do método.
@@ -108,3 +112,90 @@ Os resultados do emulador online foram relatados pelo desenvolvedor e não repro
 **Limite da aprovação:** os resultados não representam prova exaustiva de correção para todas as construções da linguagem Jack, nem garantem ausência de regressões em programas não testados.
 
 **Encaminhamento:** etapa encerrada. Não solicitar alterações especulativas no código com base nas ocorrências acima. Novas intervenções devem depender de evidências de defeito ou de novos requisitos.
+
+
+## Etapa Comparador XML — encerramento técnico em 28/11/2026
+
+**Estado:** implementação e avaliação funcional encerradas, conforme
+handoffs atualizados do Desenvolvedor e do Testador.
+
+### Decisões finais preservadas
+
+1. O Comparador XML integra o `jack_core`, sem dependência de Qt e sem
+   acesso próprio a arquivos ou terminal.
+2. A implementação utiliza pugixml 1.16, encapsulada no alvo estático
+   `jack_pugixml` e vinculada privadamente ao `jack_core`.
+3. A CLI oferece comparação léxica na opção 10 e sintática na opção 11.
+   Cada operação solicita diretamente o caminho do XML de referência e
+   o caminho do XML gerado; os arquivos podem estar em diretórios
+   diferentes.
+4. A comparação considera estrutura, hierarquia, ordem dos elementos,
+   atributos e conteúdo textual. A ordem textual dos atributos não é
+   significativa. Somente whitespace estrutural entre elementos pode
+   ser ignorado; o conteúdo textual terminal é preservado integralmente.
+5. Comentários, declaração XML e instruções de processamento são
+   desconsiderados. DTD efetivo é rejeitado; não há resolução de
+   recursos externos.
+6. Os exportadores sugerem nomes distintos: `_lexico.xml` e
+   `_sintatico.xml`.
+7. As propostas anteriores de comando não interativo `compare-xml`,
+   comparação por diretórios, busca automática e processamento em lote
+   foram substituídas pela interface interativa aprovada. Não devem ser
+   reabertas como pendências sem novo requisito do responsável.
+8. A opção CMake `BUILD_XML_COMPARATOR_REGRESSION_TESTS` permanece
+   desativada por padrão e habilita quatro casos automatizados de
+   regressão registrados no CTest.
+
+### Evidências de encerramento
+
+- DEF-XML-01 e DEF-XML-02 aprovados.
+- Testes funcionais das opções 10 e 11 aprovados nos cenários
+  documentados pelo Testador.
+- Teste automatizado de regressão: CTest 1/1 aprovado, reunindo quatro
+  casos de DTD.
+- Distribuição Windows validada no ambiente independente Windows 11
+  testado, sem Qt, CMake ou MinGW instalados, com `jack_cli.exe` e
+  `libwinpthread-1.dll`.
+- Regressão VM: seis projetos Project 11 compilados, 11/11 arquivos VM
+  gerados e resultados funcionais positivos nos cenários observados.
+- Ressalva de Square preservada: movimentação funcional, redimensionamento
+  não funcional também com o compilador oficial no emulador comparado.
+- W-13 aprovou a identificação de falha real de permissão de leitura do
+  XML gerado; a condição equivalente no arquivo de referência não foi
+  demonstrada.
+
+### Pendência de integração e publicação
+
+Não há pendência de código identificada para esta fase segundo o
+parecer do Desenvolvedor. A etapa documental agora inclui atualizar
+README, arquitetura, manual da CLI, testes e instruções de compilação,
+além deste estado e registro de decisões.
+
+O handoff do Desenvolvedor informa que não foram realizados commit,
+tag, release ou push para a etapa. O GitKeeper deve confirmar a situação
+real do checkout, revisar os diffs e o staging e organizar a publicação
+em commits isolados. A conclusão técnica não deve ser confundida com
+publicação no GitHub.
+
+
+### Revisão documental de 28/11/2026
+
+Foram atualizados nesta revisão:
+
+- `README.md`;
+- `docs/usuario/manual-cli.md`;
+- `docs/tecnico/arquitetura.md`;
+- `docs/tecnico/testes.md`;
+- `docs/instalacao/compilacao.md`;
+- `docs/contexto/estado-atual.md`;
+- `docs/contexto/decisoes-e-pendencias.md`.
+
+A revisão incorpora a conclusão do Comparador XML, os resultados de
+avaliação independente, a regressão VM W-12, a validação de distribuição
+Windows e o procedimento de runtime estático da CLI. Os documentos de
+handoff do Desenvolvedor e do Testador fornecidos no pacote foram
+preservados como registros de evidência, sem reescrita nesta atualização.
+
+A documentação preparada não comprova commit, tag, release ou push.
+Essas operações dependem da conferência do checkout e do procedimento
+de autorização do GitKeeper.

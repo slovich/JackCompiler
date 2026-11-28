@@ -4,7 +4,7 @@
 
 Este documento descreve a organização interna do **JackCompiler**, suas principais responsabilidades, os componentes envolvidos no processamento de programas Jack e as relações entre eles.
 
-O projeto implementa análise léxica, análise sintática, construção de uma árvore sintática abstrata (AST), manutenção de uma tabela de símbolos, geração de código para a máquina virtual Jack (VM) e geração de representações em XML. A aplicação dispõe de uma interface gráfica, desenvolvida com Qt, e de uma interface de linha de comando.
+O projeto implementa análise léxica, análise sintática, construção de uma árvore sintática abstrata (AST), manutenção de uma tabela de símbolos, geração de código para a máquina virtual Jack (VM), geração de representações XML e comparação estrutural de XML léxico e sintático. A aplicação dispõe de uma interface gráfica, desenvolvida com Qt, e de uma interface de linha de comando.
 
 A implementação da SymbolTable e do VMWriter foi submetida a testes comportamentais independentes. O VMCodeGenerator e sua integração com o fluxo não interativo da CLI foram submetidos à validação funcional utilizando os seis programas oficiais do Project 11 do Nand2Tetris.
 
@@ -16,7 +16,7 @@ Assim, é necessário distinguir a geração de código VM já implementada da a
 
 A arquitetura separa o processamento da linguagem das interfaces utilizadas para acioná-lo:
 
-- **`core`**: contém a implementação compartilhada dos analisadores léxico e sintático, da AST, da tabela de símbolos, dos componentes de geração de código VM e dos geradores XML.
+- **`core`**: contém a implementação compartilhada dos analisadores léxico e sintático, da AST, da tabela de símbolos, dos componentes de geração de código VM, dos geradores XML e do Comparador XML.
 - **`cli`**: implementa a interface de linha de comando, incluindo o menu interativo e o fluxo não interativo de geração de código VM.
 - **`src`**: implementa a interface gráfica Qt e utiliza o núcleo compartilhado para análise léxica, análise sintática e operações relacionadas à representação XML.
 - **`tests`**: contém arquivos Jack para testes funcionais e arquivos de testes independentes dos componentes do núcleo.
@@ -71,10 +71,13 @@ JackCompiler/
 │   ├── inputs/
 │   │   ├── invalidos/
 │   │   └── validos/
+│   ├── comparadorxml_regression_tests.cpp
 │   ├── symboltable_test.cpp
 │   ├── vmwriter_tests.cpp
 │   ├── vmcodegenerator_tests.cpp
 │   └── vmcodegenerator_extended_tests.cpp
+├── third_party/
+│   └── pugixml/
 └── CMakeLists.txt
 ```
 
@@ -89,7 +92,7 @@ O diretório `core` é dividido por responsabilidade:
 | `parser` | Resultado da análise sintática e reconhecimento da gramática |
 | `symbol` | Implementação da tabela de símbolos |
 | `vm` | Implementação do emissor de instruções VM e do gerador de código VM |
-| `xml` | Geração das representações XML léxica e sintática |
+| `xml` | Geração das representações XML léxica e sintática e comparação estrutural de documentos XML |
 
 Os diretórios `include` e `src` separam as interfaces públicas das implementações. Os cabeçalhos públicos ficam em `core/include/jack`, enquanto as implementações correspondentes ficam em `core/src`.
 
@@ -111,13 +114,25 @@ O projeto utiliza CMake para configurar a compilação e exige suporte a **C++17
 
 | Alvo CMake | Tipo | Responsabilidade |
 |---|---|---|
-| `jack_core` | Biblioteca estática | Reunir os componentes compartilhados do núcleo: lexer, parser, AST, SymbolTable, VMWriter, VMCodeGenerator e geradores XML. |
+| `jack_pugixml` | Biblioteca estática | Disponibilizar pugixml 1.16 como dependência privada do núcleo. |
+| `jack_core` | Biblioteca estática | Reunir os componentes compartilhados do núcleo: lexer, parser, AST, SymbolTable, VMWriter, VMCodeGenerator, geradores XML e Comparador XML. |
 | `jack_cli` | Executável | Disponibilizar a interface de linha de comando, incluindo o fluxo não interativo de geração de código VM. |
 | `compilador` | Executável | Disponibilizar a interface gráfica Qt. O alvo é criado somente quando `BUILD_GUI` está habilitado. |
+| `comparadorxml_regression_tests` | Executável de teste | Executar os quatro casos automatizados de regressão do Comparador XML; criado somente quando `BUILD_XML_COMPARATOR_REGRESSION_TESTS=ON`. |
 
 A opção CMake `BUILD_GUI` controla a inclusão da interface gráfica e tem valor padrão `ON`.
 
+A opção `BUILD_XML_COMPARATOR_REGRESSION_TESTS` controla a criação do
+alvo de regressão do Comparador XML e tem valor padrão `OFF`. Quando
+habilitada, registra o teste no CTest.
+
 Quando `BUILD_GUI=OFF`, o CMake não procura os componentes Qt e não cria o alvo `compilador`. O núcleo e a interface CLI continuam disponíveis. Essa separação permite compilar e utilizar a CLI sem instalar Qt.
+
+O Comparador XML utiliza **pugixml 1.16**, mantida no diretório
+`third_party/pugixml/`. O CMake disponibiliza a dependência pelo alvo
+estático `jack_pugixml`, vinculado privadamente ao `jack_core`. Os tipos
+da pugixml não fazem parte da interface pública do Comparador XML; assim,
+a dependência permanece encapsulada no núcleo.
 
 Quando a interface gráfica está habilitada, o projeto procura Qt 5 ou Qt 6 com os componentes `Widgets` e `Xml`. O executável gráfico é vinculado a `jack_core` e aos módulos Qt correspondentes.
 
@@ -125,7 +140,7 @@ A interface gráfica utiliza recursos do Qt para interpretar o XML sintático pr
 
 ### 4.2 Dependências entre os componentes
 
-O núcleo não depende de Qt. Sua implementação utiliza C++ e as estruturas da biblioteca padrão, incluindo contêineres, strings, variantes e ponteiros inteligentes.
+O núcleo não depende de Qt. Sua implementação utiliza C++17, estruturas da biblioteca padrão e a dependência externa encapsulada pugixml 1.16, utilizada pelo Comparador XML.
 
 As duas interfaces dependem do núcleo. A interface gráfica também utiliza Qt Widgets para a apresentação visual e recursos do Qt Core para percorrer o documento XML sintático:
 
@@ -133,11 +148,17 @@ As duas interfaces dependem do núcleo. A interface gráfica também utiliza Qt 
 flowchart TD
     A["jack_cli"] --> C["jack_core"]
     B["compilador (GUI)"] --> C
+    C --> F["jack_pugixml / pugixml 1.16"]
     B --> D["Qt Widgets"]
     B --> E["Qt Core"]
 ```
 
 Essa organização mantém a lógica de análise e geração XML independente da tecnologia de interface. A GUI utiliza recursos do Qt Core para percorrer o documento XML, enquanto os geradores do núcleo produzem o conteúdo XML como `std::string`, sem dependência das classes Qt.
+
+O Comparador XML também pertence ao `jack_core` e recebe os conteúdos
+dos dois documentos em memória. Ele não acessa arquivos, diretórios,
+terminal ou Qt. A CLI é responsável por solicitar os caminhos, abrir e
+ler os arquivos e apresentar o resultado da comparação.
 
 ## 5. Fluxo de processamento
 
@@ -364,15 +385,45 @@ A implementação utiliza um escritor interno para controlar abertura e fechamen
 
 Assim como no gerador léxico, os caracteres `&`, `<` e `>` são escapados quando aparecem nos textos dos terminais.
 
+### 9.3 Comparador XML
+
+O Comparador XML é declarado em
+`core/include/jack/xml/comparadorxml.h` e implementado em
+`core/src/xml/comparadorxml.cpp`. Ele compara estruturalmente documentos
+XML léxicos e sintáticos, recebidos como strings em memória.
+
+A modalidade léxica espera a raiz `<tokens>`; a modalidade sintática
+espera a raiz `<class>`. A comparação considera nomes e hierarquia dos
+elementos, quantidade e ordem dos nós, atributos e conteúdo textual. A
+ordem textual dos atributos não é significativa. Whitespace estrutural
+entre elementos pode ser ignorado, mas o conteúdo textual dos nós
+terminais é preservado integralmente, inclusive espaços iniciais/finais
+e conteúdo formado somente por whitespace.
+
+Comentários, declaração XML e instruções de processamento são
+desconsiderados. DTD efetivo é rejeitado e não há resolução de entidades
+ou recursos externos. A sequência `<!DOCTYPE` presente dentro de
+comentário ou CDATA não é classificada como DTD.
+
+A interface do núcleo retorna um `XMLComparisonResult`, com os estados
+`Equivalent`, `Different`, `InvalidExpectedXML`, `InvalidActualXML`,
+`IncompatibleDocuments` e `InternalError`. O limite padrão é de 20
+divergências detalhadas exibidas, mantendo a contabilização total.
+
+A dependência pugixml 1.16 é encapsulada na implementação. Seus tipos
+não são expostos na interface pública do comparador.
+
 ## 10. Interfaces de utilização
 
 ### 10.1 Interface de linha de comando
 
 A aplicação CLI é iniciada por `main()`, que seleciona o fluxo de execução conforme os argumentos recebidos. Quando há argumentos, instancia `CompiladorVMCLI` e encaminha a execução para o processamento não interativo. Quando não há argumentos, inicia o fluxo interativo, coordenado pela classe `Application`, responsável pelo menu, pela seleção e leitura de arquivos, pela execução das análises e pela apresentação dos resultados.
 
-A CLI oferece operações interativas para executar as análises léxica e sintática, exportar XML, executar os testes organizados no projeto e analisar arquivos em lote. Separadamente, disponibiliza um fluxo não interativo acionado por argumentos, utilizado para gerar arquivos de código VM a partir de programas Jack.
+A CLI oferece operações interativas para executar as análises léxica e sintática, exportar XML, executar os testes organizados no projeto, analisar arquivos em lote e comparar XML. As opções 10 e 11 realizam, respectivamente, a comparação léxica e sintática. Cada operação solicita o caminho do XML de referência e o caminho do XML gerado; os arquivos podem estar em diretórios distintos.
 
-A geração VM é, portanto, uma funcionalidade da CLI não interativa, apoiada pelos componentes do `jack_core`. Ela não faz parte do menu interativo nem da interface gráfica, conforme o escopo validado nesta etapa.
+A CLI realiza a interação, validação dos caminhos e leitura dos arquivos. Em seguida, encaminha os conteúdos em memória ao `jack::xml::ComparadorXml`, pertencente ao `jack_core`, e apresenta equivalência, divergências ou erros.
+
+Separadamente, a CLI disponibiliza um fluxo não interativo acionado por argumentos, utilizado para gerar arquivos de código VM a partir de programas Jack. A geração VM é, portanto, uma funcionalidade da CLI não interativa, apoiada pelos componentes do `jack_core`. Ela não faz parte do menu interativo nem da interface gráfica, conforme o escopo validado nesta etapa.
 
 A CLI utiliza `jack_core`; não contém uma segunda implementação dos analisadores.
 
@@ -397,9 +448,9 @@ A interface CLI oferece uma opção que executa os testes dessas duas categorias
 
 O componente `TestadorLote` realiza a leitura dos arquivos, executa a análise léxica e, quando ela é bem-sucedida, executa a análise sintática. Os resultados são contabilizados por arquivo e consolidados em um resumo.
 
-Esse mecanismo é um executor funcional baseado em arquivos de entrada para as análises léxica e sintática. Além dele, existem arquivos de testes independentes para SymbolTable, VMWriter e VMCodeGenerator. Esses testes foram compilados e executados separadamente; não estavam integrados aos alvos do CMake nem ao CTest na configuração examinada.
+Esse mecanismo é um executor funcional baseado em arquivos de entrada para as análises léxica e sintática. Existem também testes independentes para SymbolTable, VMWriter e VMCodeGenerator, executados separadamente. Para o Comparador XML, foi acrescentado um alvo opcional de regressão integrado ao CTest, controlado pela opção `BUILD_XML_COMPARATOR_REGRESSION_TESTS`, desativada por padrão. Quando habilitada, essa configuração cria o alvo `comparadorxml_regression_tests` e registra um teste no CTest. O teste automatizado contém quatro casos para distinguir ocorrências de `<!DOCTYPE` em comentário/CDATA de declarações DTD efetivas.
 
-A ausência de integração CMake/CTest é uma característica da infraestrutura de testes registrada na auditoria, não uma indicação de que os testes independentes não tenham sido executados.
+Na validação registrada em 28/11/2026, a configuração com `BUILD_XML_COMPARATOR_REGRESSION_TESTS=ON` compilou `jack_pugixml`, `jack_core`, `jack_cli` e `comparadorxml_regression_tests`; o CTest apresentou 1/1 teste aprovado. Esse resultado se refere ao conjunto de quatro casos de regressão do comparador e não deve ser interpretado como execução de toda a suíte do projeto.
 
 ## 12. Decisões arquiteturais e limites atuais
 
@@ -412,7 +463,9 @@ As decisões e características a seguir ajudam a compreender o comportamento at
 - **Falha sintática sem recuperação:** o parser registra o primeiro erro e encerra a análise, sem tentar sincronizar e continuar a partir de uma construção posterior.
 - **Análise semântica não comprovada como etapa completa:** a existência da SymbolTable não demonstra, por si só, que verificações como resolução completa de identificadores, compatibilidade de tipos, argumentos e parâmetros ou consistência de retornos estejam implementadas e integradas.
 - **Geração VM disponível pela CLI não interativa:** o `VMCodeGenerator` e o `VMWriter` estão implementados no núcleo e são utilizados pelo fluxo não interativo da CLI. Não há evidência de geração VM pela GUI.
-- **Saídas distintas:** os geradores XML produzem representações léxica e sintática; o fluxo VM da CLI produz arquivos `.vm`.
+- **Saídas distintas:** os geradores XML produzem representações léxica e sintática; o Comparador XML compara os documentos correspondentes; o fluxo VM da CLI produz arquivos `.vm`.
+- **Comparação XML no núcleo:** a comparação é estrutural e independente de Qt e de acesso a arquivos; a CLI executa a interação e a leitura dos documentos.
+- **Dependência XML encapsulada:** pugixml 1.16 é vinculada privadamente ao `jack_core` por meio do alvo `jack_pugixml`.
 
 Esses limites delimitam o que se pode concluir a partir de uma execução bem-sucedida: o arquivo foi aceito pelas regras léxicas e sintáticas implementadas, mas isso não significa que todas as propriedades semânticas do programa tenham sido verificadas.
 
@@ -423,7 +476,7 @@ A separação entre núcleo e interfaces permite evoluções sem exigir que toda
 - aprimorar as mensagens e a localização de erros;
 - avaliar a inclusão de recuperação sintática, caso seja desejável reportar mais de um erro por execução;
 - completar ou ampliar a análise semântica, caso isso venha a ser definido como requisito;
-- ampliar a cobertura de testes automatizados e avaliar sua integração ao CMake/CTest;
+- ampliar a cobertura de testes automatizados para além dos quatro casos de regressão XML e dos cenários funcionais já documentados;
 - adicionar outras interfaces que reutilizem `jack_core`, caso necessário.
 
 Esses itens são possibilidades de evolução, não funcionalidades já implementadas.

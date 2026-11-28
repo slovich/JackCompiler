@@ -2,8 +2,8 @@
 
 **Projeto:** JackCompiler  
 **Repositório informado:** `slovich/JackCompiler`  
-**Atualização:** 24/11/2026
-**Escopo:** desenvolvimento e validação dos componentes do JackCompiler, incluindo o `VMCodeGenerator`, a investigação das ocorrências em Square e Pong e a portabilidade da CLI Windows.
+**Atualização:** 28/11/2026
+**Escopo:** desenvolvimento dos componentes do JackCompiler, incluindo o `VMCodeGenerator`, o Comparador XML, a investigação das ocorrências em Square e Pong e a portabilidade da CLI Windows.
 
 ## Papel
 
@@ -171,15 +171,16 @@ O usuário repetiu a compilação oficial de Square e obteve o mesmo resultado: 
 
 ## 5. Limitações, riscos e pendências
 
-1. Confirmar no checkout local vigente a branch, commit, working tree e conteúdo real dos arquivos antes de qualquer nova alteração.
-2. Reexecutar a suíte completa de testes no ambiente do usuário e registrar comandos, contagens e resultados.
-3. Confirmar se todos os 11 arquivos VM e os seis programas continuam reproduzíveis no checkout atual.
-4. Não há validação funcional da geração VM pela GUI Qt registrada nesta fase.
-5. A causa do comportamento anômalo do VM Emulator desktop permanece desconhecida.
-6. O redimensionamento de Square permanece sem comportamento funcional observado, mas foi reproduzido com o compilador oficial e não deve ser classificado como defeito confirmado do JackCompiler.
-7. Não há evidência suficiente nesta fase para afirmar cobertura integral de todas as construções Jack ou ausência de defeitos no VMCodeGenerator.
-8. A compatibilidade com outras versões do emulador, do Java ou do sistema operacional não foi investigada sistematicamente.
-9. O handoff recebido registra o comparador de XML como pendência. Entretanto, seu estado no checkout atual não pôde ser confirmado nesta revisão, pois foi disponibilizado apenas o handoff, sem o checkout vigente ou evidência atualizada de implementação e testes. Antes de classificar essa atividade como pendente ou concluída, verificar a branch, o commit, a working tree, os arquivos e os testes correspondentes no projeto atual.
+1. Antes de qualquer nova alteração, confirmar no checkout local vigente a branch, commit, working tree e conteúdo real dos arquivos. O estado local não deve ser inferido a partir de snapshots ZIP anteriores.
+2. Não há validação funcional da geração VM pela GUI Qt registrada neste handoff.
+3. A causa do comportamento anômalo observado no VM Emulator desktop permanece desconhecida. Os resultados variaram entre o emulador desktop e o emulador online, inclusive com programas compilados pelo compilador oficial.
+4. O redimensionamento de Square não apresentou comportamento funcional no ambiente avaliado, mas a limitação foi reproduzida com o compilador oficial. Não deve ser classificada como defeito confirmado do JackCompiler.
+5. Não há evidência suficiente para afirmar cobertura integral de todas as construções Jack ou ausência absoluta de defeitos no VMCodeGenerator.
+6. A compatibilidade com outras versões do emulador, do Java ou do sistema operacional não foi investigada sistematicamente.
+7. A avaliação de distribuição Windows do Comparador XML foi realizada em um ambiente independente específico, sem MinGW, Qt ou CMake instalados. O resultado não garante compatibilidade com todas as configurações possíveis do Windows.
+8. Não foi registrado hash do executável obtido no computador do Testador para comparação criptográfica com o binário encaminhado. A correspondência da versão avaliada foi estabelecida pelo fluxo de entrega e pelo relato do Testador, não por igualdade de hashes coletados nos dois ambientes.
+9. A regressão VM W-12 cobre os seis projetos oficiais do Project 11 e 11 arquivos Jack/VM, mas não equivale a uma prova de correção de todas as construções da linguagem.
+10. Não foram realizados commit, tag, release ou push para consolidar esta fase.
 
 ## 6. Próximas orientações de desenvolvimento
 
@@ -332,6 +333,101 @@ Não foi realizado commit, tag, release ou push nesta atividade.
 
 ---
 
+## 8. Comparador XML — primeira avaliação e correções solicitadas em 25/11/2026
+
+### Objetivo e decisões
+
+O Comparador XML compara estruturalmente XML léxico e sintático do JackCompiler com referências Nand2Tetris. A implementação reside no `jack_core`, utiliza pugixml 1.16 e não expõe tipos pugixml na interface pública.
+
+Decisões aprovadas e preservadas:
+
+- Arquivos exportados: `Nome_lexico.xml` e `Nome_sintatico.xml`.
+- Referências: `NomeT.xml` para léxico e `Nome.xml` para sintático.
+- Raízes esperadas: `<tokens>` para léxico e `<class>` para sintático.
+- Comparação estrutural de nomes, hierarquia, quantidade e ordem dos elementos, atributos e conteúdo textual.
+- Ordem textual de atributos não é significativa.
+- Whitespace estrutural entre elementos pode ser ignorado; conteúdo terminal deve ser preservado integralmente, inclusive espaços iniciais/finais, múltiplos espaços e conteúdo formado somente por whitespace.
+- Comentários, declaração XML e instruções de processamento são ignorados.
+- DTD efetivo é rejeitado; não se deve resolver entidades ou recursos externos.
+- Limite padrão de 20 divergências exibidas, com contagem total preservada.
+- Acesso exclusivamente pelo menu interativo da CLI: opção 10 para XML léxico e opção 11 para XML sintático. Não introduzir o comando não interativo `compare-xml`.
+
+### Arquitetura e arquivos
+
+- `core/include/jack/xml/comparadorxml.h` — API pública.
+- `core/src/xml/comparadorxml.cpp` — parsing e comparação com pugixml encapsulada.
+- `cli/include/jack/cli/application.h` — declaração da integração.
+- `cli/src/application.cpp` — opções 10/11, seleção de arquivos, processamento e apresentação.
+- `CMakeLists.txt` — dependência pugixml e integração dos componentes.
+- `third_party/pugixml/` — distribuição pugixml 1.16, com fontes, cabeçalhos, licença e README.
+
+Na implementação inicial, a CLI comparava por diretórios e nomes-base, com busca não recursiva. A lista podia ser informada por um nome, nomes separados por vírgula ou arquivo `.txt`; linhas vazias e comentários `#` eram ignorados e duplicatas eram ignoradas com aviso. Esse fluxo foi substituído pela readequação registrada na seção 9. Correspondências históricas:
+- léxico: referência `<Nome>T.xml`, gerado `<Nome>_lexico.xml`;
+- sintático: referência `<Nome>.xml`, gerado `<Nome>_sintatico.xml`.
+
+O core recebe strings XML em memória e retorna `XMLComparisonResult`, com estados `Equivalent`, `Different`, `InvalidExpectedXML`, `InvalidActualXML`, `IncompatibleDocuments` e `InternalError`. Não acessa arquivos, diretórios, terminal ou Qt.
+
+### Primeira avaliação independente
+
+O Testador reportou resultados positivos em TST-01 a TST-07, TST-11 a TST-15 e TST-16, com ressalvas documentadas. TST-10 foi adaptado: três classes reais disponíveis foram comparadas por tipo, 3/3 equivalentes em léxico e 3/3 em sintático. TST-17 foi considerado não aplicável por causa da decisão posterior de usar menu interativo. TST-08 não foi executado, TST-09 ficou bloqueado e TST-18 foi parcial.
+
+A primeira avaliação identificou dois defeitos que impedem a aprovação:
+
+**DEF-XML-01 — colisão nos nomes sugeridos pelos exportadores.** Ambos sugeriam `Nome.xml`, permitindo que a exportação sintática sobrescrevesse a léxica.
+
+**DEF-XML-02 — detecção textual indevida de DTD.** A implementação procurava a sequência literal `<!DOCTYPE` no texto XML e rejeitava documentos válidos quando a sequência aparecia em comentário ou CDATA.
+
+### Correções implementadas após a primeira avaliação
+
+**DEF-XML-01:** em `cli/src/application.cpp`, os destinos sugeridos foram separados:
+- exportação léxica: `<nome-base>_lexico.xml`;
+- exportação sintática: `<nome-base>_sintatico.xml`.
+
+Os geradores continuam responsáveis por produzir o conteúdo XML; a nomenclatura dos arquivos é definida pelo fluxo de exportação da CLI.
+
+**DEF-XML-02:** em `core/src/xml/comparadorxml.cpp`, foi removida a busca textual por `<!DOCTYPE`. O parsing passa a solicitar `pugi::parse_doctype` e inspeciona os nós de primeiro nível em busca de `pugi::node_doctype`. Assim, a sequência dentro de comentário ou CDATA não é classificada como DTD. Uma declaração DOCTYPE efetiva continua sendo rejeitada após o parsing. Não é configurado resolver externo; a implementação não deve carregar recursos externos.
+
+Foi preparado o arquivo `tests/comparadorxml_regression_tests.cpp` com quatro casos:
+1. sequência `<!DOCTYPE` em comentário — deve ser aceita;
+2. sequência `<!DOCTYPE` em CDATA — deve ser aceita como conteúdo;
+3. DOCTYPE efetivo no XML de referência — deve ser rejeitado;
+4. DOCTYPE efetivo no XML gerado, incluindo identificador externo — deve ser rejeitado.
+
+Foi acrescentada ao `CMakeLists.txt` a opção `BUILD_XML_COMPARATOR_REGRESSION_TESTS`, desativada por padrão. Quando habilitada, cria o alvo `comparadorxml_regression_tests` e registra-o no CTest. Os quatro casos foram preparados pelo Desenvolvedor e posteriormente compilados e executados pelo responsável no checkout Windows, conforme os resultados registrados abaixo.
+
+### Estado de integração e validação
+
+Após a aplicação do pacote de correções no checkout Windows do responsável, foram executados os seguintes comandos:
+
+```powershell
+cmake -S . -B build-cli -DBUILD_GUI=OFF -DBUILD_XML_COMPARATOR_REGRESSION_TESTS=ON
+cmake --build build-cli --target jack_cli comparadorxml_regression_tests
+ctest --test-dir build-cli --output-on-failure
+```
+
+Resultados informados pelo responsável:
+
+- Configuração CMake concluída com sucesso.
+- `jack_pugixml`, `jack_core` e `jack_cli` compilados com sucesso.
+- `comparadorxml_regression_tests` compilado e vinculado com sucesso.
+- CTest: 1/1 teste aprovado, 100% dos testes executados sem falhas.
+
+O conjunto automatizado contempla quatro casos relacionados à detecção de DTD: sequência textual em comentário, sequência em CDATA, DTD efetivo na referência e DTD efetivo no XML gerado com identificador externo.
+
+Esses resultados comprovam a execução bem-sucedida dos testes automatizados preparados para DEF-XML-02. Não representam aprovação integral do Comparador XML nem substituem a avaliação independente do Testador.
+
+A correção DEF-XML-01 está presente no código da CLI, com nomes sugeridos distintos para os arquivos léxico e sintático. Sua verificação específica pelos cenários de exportação ainda deve ser registrada.
+
+A nova avaliação independente do Testador permanece obrigatória.
+
+### Encerramento da primeira rodada de correções
+
+A lista de pendências acima foi superada parcialmente pela segunda avaliação independente, conforme o relato posterior do Testador: a nomenclatura dos exportadores foi confirmada funcionalmente e os quatro cenários de DTD foram aprovados. A avaliação integral do Comparador XML permaneceu em andamento e, posteriormente, originou a solicitação de readequação da interface registrada na seção 9.
+
+Não foi realizado commit, tag, release ou push nesta atividade.
+
+---
+
 # Registro de mudanças deste handoff
 
 ## 22/11/2026 — Encerramento da fase VMCodeGenerator
@@ -356,3 +452,246 @@ Não foi realizado commit, tag, release ou push nesta atividade.
 ## Histórico anterior preservado
 
 As instruções originais de papel, limites arquiteturais e entregas deste handoff foram mantidas e ampliadas para refletir o estado e as decisões desta fase.
+
+
+## 25/11/2026 — Implementação do Comparador XML e correções solicitadas pelo Testador
+
+- Incorporado ao handoff o estado da implementação do Comparador XML, substituindo a referência anterior de estado não confirmado.
+- Registrados a arquitetura, os arquivos, as decisões aprovadas, a integração no menu interativo e os resultados da primeira avaliação independente.
+- Preparada a correção dos nomes sugeridos pelos exportadores léxico e sintático, evitando colisão entre `Nome_lexico.xml` e `Nome_sintatico.xml`.
+- Substituída a detecção textual de DTD por identificação estrutural de `pugi::node_doctype`, preservando a rejeição de DTD efetivo e evitando falsos positivos em comentários/CDATA.
+- Preparado um alvo opcional de testes de regressão para os dois defeitos; os testes não foram executados pelo Desenvolvedor.
+- A implementação corrigida ainda depende de compilação no checkout Windows do responsável e de nova avaliação independente do Testador.
+- Removido o handoff separado `comparador_xml_implementacao.md` do pacote de trabalho; seu conteúdo técnico foi incorporado a este documento.
+- Nenhuma operação Git foi realizada.
+
+## 25/11/2026 — Aplicação e validação automatizada das correções no Windows
+
+- O responsável aplicou o pacote de correções ao checkout local.
+- Foram removidos os documentos auxiliares `README_CORRECOES.md` e `docs/contexto/handoffs/comparador_xml_implementacao.md`, consolidando o registro técnico neste handoff.
+- A configuração CMake foi concluída com `BUILD_GUI=OFF` e `BUILD_XML_COMPARATOR_REGRESSION_TESTS=ON`.
+- Os alvos `jack_cli` e `comparadorxml_regression_tests` foram compilados com sucesso no Windows.
+- O CTest registrou 1/1 teste aprovado, contemplando os quatro casos automatizados de regressão relacionados à detecção de DTD.
+- A verificação funcional específica dos nomes sugeridos pelos exportadores permanece pendente.
+- A nova avaliação independente do Testador permanece obrigatória.
+- Nenhuma operação Git foi realizada.
+
+## 9. Readequação da interface do Comparador XML — 28/11/2026
+
+### Solicitação e comportamento aprovado
+
+Após a segunda avaliação funcional, o Testador informou resultados positivos para as correções DEF-XML-01 e DEF-XML-02 e solicitou simplificação do fluxo da CLI. O usuário seleciona o tipo de comparação no menu e informa diretamente dois caminhos:
+
+1. caminho do XML de referência;
+2. caminho do XML gerado.
+
+As opções independentes permanecem: opção 10 — Comparar XML léxico; opção 11 — Comparar XML sintático. Os arquivos podem estar em diretórios distintos e não precisam obedecer a uma convenção de nomes.
+
+Foram removidos do fluxo de comparação: seleção de diretórios, busca por nome-base, listas separadas por vírgula, arquivo `.txt`, processamento em lote e busca não recursiva. A alteração não modifica o fluxo de exportação dos XML.
+
+### Implementação
+
+A alteração ficou restrita a `cli/src/application.cpp`, no método `Application::compararXml(bool lexico)`:
+
+- solicita o caminho do XML de referência e o caminho do XML gerado;
+- verifica existência e tipo regular dos caminhos usando `std::filesystem`;
+- abre os dois arquivos em modo binário e verifica falhas de abertura/leitura;
+- passa os conteúdos em memória ao `jack::xml::ComparadorXml` com o tipo léxico ou sintático correspondente;
+- preserva a apresentação de equivalência, divergências, caminhos estruturais, descrições, valores esperado/gerado, total de divergências e localização de erros de parsing;
+- retorna ao fluxo normal da CLI; `processarOpcao()` mantém a pausa existente antes da reapresentação do menu principal.
+
+Não foram alterados `jack::xml::ComparadorXml`, sua interface pública, pugixml 1.16, `jack_core`, regras estruturais, segurança do parser, geradores XML, exportadores, opções do menu, integração VM ou CMake. Não foi adicionado teste automatizado específico para a interação da CLI; esses cenários permanecem para avaliação independente.
+
+### Arquivo modificado
+
+- `cli/src/application.cpp` — substituição do fluxo de diretórios/listas/lote por comparação individual de dois caminhos explícitos.
+
+Nenhum outro arquivo de código foi alterado nesta readequação.
+
+### Build técnico realizado pelo Desenvolvedor
+
+Ambiente Linux do Desenvolvedor: GCC 14.2.0 e CMake (versão detectada pelo ambiente: 3.31.6). Com GUI desativada e testes de regressão habilitados:
+
+```bash
+cmake -S . -B build -DBUILD_GUI=OFF -DBUILD_XML_COMPARATOR_REGRESSION_TESTS=ON
+cmake --build build --target jack_cli comparadorxml_regression_tests -j2
+```
+
+Resultado: configuração concluída e os alvos `jack_cli` e `comparadorxml_regression_tests` compilados e vinculados com sucesso. O CTest foi executado com `ctest --test-dir build --output-on-failure`: 1/1 teste aprovado, sem falhas. Esse resultado confirma o conjunto automatizado de regressão do comparador, mas não substitui a compilação Windows nem a avaliação independente do Testador.
+
+Também foram realizados testes manuais de fumaça da CLI no Linux, usando diretórios e nomes de arquivos com espaços:
+- opção 10: comparação léxica equivalente entre dois caminhos explícitos — resultado equivalente;
+- opção 11: comparação sintática equivalente entre dois caminhos explícitos — resultado equivalente;
+- caminho do XML gerado inexistente — diagnóstico de arquivo não encontrado;
+- XML gerado malformado — diagnóstico de parsing com linha e coluna;
+- documentos divergentes — divergência textual identificada com caminho estrutural e valores de referência/gerado;
+- após a operação, a CLI reapresentou o menu principal.
+
+Esses testes manuais não cobrem falha real de permissão de leitura nem substituem a matriz completa do Testador. Não foi executado nesta etapa teste de regressão funcional do compilador VM.
+
+### Verificações pendentes para o Testador
+
+1. Comparação léxica por dois caminhos explícitos.
+2. Comparação sintática por dois caminhos explícitos.
+3. Arquivos em diretórios diferentes e caminhos com espaços.
+4. Caminho de referência inexistente e caminho do XML gerado inexistente.
+5. Falha de leitura de um dos arquivos.
+6. XML malformado e diagnóstico de linha/coluna.
+7. Equivalência com formatação diferente e identificação de divergências.
+8. Retorno ao menu principal após a comparação.
+9. Regressão das funcionalidades de compilação VM.
+10. Repetição dos cenários DEF-XML-01 e DEF-XML-02, conforme matriz atualizada pelo Testador.
+
+### Estado após a avaliação independente
+
+A readequação foi compilada pelo responsável no Windows, com `BUILD_GUI=OFF` e `BUILD_XML_COMPARATOR_REGRESSION_TESTS=ON`. Os alvos `jack_cli` e `comparadorxml_regression_tests` foram compilados com sucesso e o CTest registrou 1/1 teste aprovado.
+
+O responsável também executou no Windows comparações reais de ArrayTest:
+- léxico: `MainT_original.xml` versus `Main_lexico.xml` — documentos equivalentes;
+- sintático: `Main_original.xml` versus `Main_sintatico.xml` — documentos equivalentes.
+
+O SHA-256 informado para `build-cli\jack_cli.exe` produzido nessa compilação foi:
+
+`872C19742D981CD3B7A4DE58C468CA3D8794C77E08D0C7D363A9D8225D0B80FE`
+
+A avaliação independente posterior do Testador aprovou os cenários da interface, inclusive caminhos com espaços, arquivos inexistentes, diretório no lugar de arquivo, XML malformado, linha/coluna, raiz incompatível e retorno ao menu após sucesso ou erro. O Testador também repetiu os cenários DEF-XML-01 e DEF-XML-02 e os aprovou.
+
+A regressão VM e a validação de distribuição Windows estão consolidadas na seção 10. A implementação do Comparador XML e sua avaliação independente foram encerradas. Não há pendência de código identificada para esta fase.
+
+Não foi realizado commit, tag, release ou push.
+
+---
+
+## 10. Encerramento do Comparador XML e regressão independente — 28/11/2026
+
+### 10.1. Parecer e escopo avaliado
+
+O Testador concluiu a avaliação independente da implementação do Comparador XML, incluindo as correções DEF-XML-01 e DEF-XML-02, a interface readequada e a regressão das funcionalidades de geração VM. O Desenvolvedor analisou o relatório conclusivo e manifestou parecer favorável ao encerramento.
+
+A interface final permanece:
+- opção 10 — Comparar XML léxico;
+- opção 11 — Comparar XML sintático.
+
+Cada operação solicita exclusivamente o caminho do XML de referência e o caminho do XML gerado. Os arquivos podem estar em diretórios distintos. Não há busca automática, nomes-base, listas de classes, arquivos CSV/TXT ou comparação em lote no fluxo final.
+
+A alteração da interface substituiu expressamente as propostas originais do Analista de comando `compare-xml`, comparação por diretórios e processamento em lote. Essas propostas não são defeitos pendentes: foram substituídas por decisão posterior do responsável pelo projeto. Códigos de saída específicos e ajuda de comando também não se aplicam ao fluxo interativo final.
+
+### 10.2. Resultados DEF-XML-01 e DEF-XML-02
+
+**DEF-XML-01 — colisão nos nomes dos XML exportados: APROVADO.**
+
+O Testador confirmou no Windows 11 que as exportações léxica e sintática produzem arquivos distintos, respectivamente `Nome_lexico.xml` e `Nome_sintatico.xml`, preservando os arquivos e permitindo repetir as exportações sem erro.
+
+**DEF-XML-02 — identificação de DTD: APROVADO.**
+
+Foram aprovados os cenários:
+- sequência `<!DOCTYPE fake>` dentro de comentário — aceita;
+- sequência `<!DOCTYPE fake>` dentro de CDATA — aceita;
+- DTD efetivo no XML de referência — rejeitado;
+- DTD efetivo no XML gerado — rejeitado.
+
+Os três cenários principais também foram reproduzidos no executável Windows: comentário e CDATA foram aceitos e DTD efetivo foi rejeitado com diagnóstico de DTD não suportado.
+
+### 10.3. Readequação da interface — resultados do Testador
+
+O Testador executou no Windows 11 e aprovou:
+
+| Cenário | Resultado |
+|---|---|
+| Comparação léxica de ArrayTest | PASS |
+| Comparação sintática de ArrayTest | PASS |
+| Caminhos contendo espaços | PASS |
+| Arquivo de referência inexistente | PASS |
+| Arquivo gerado inexistente | PASS |
+| Diretório informado no lugar de arquivo | PASS |
+| XML malformado | PASS |
+| Diagnóstico de linha e coluna | PASS |
+| Raiz XML incompatível | PASS |
+| Retorno ao menu após sucesso | PASS |
+| Retorno ao menu após erro | PASS |
+| Repetição das exportações | PASS |
+
+O responsável pelo projeto também realizou comparações reais de ArrayTest no Windows:
+- léxico: `MainT_original.xml` versus `Main_lexico.xml` — `[OK] Os documentos XML são equivalentes.`;
+- sintático: `Main_original.xml` versus `Main_sintatico.xml` — `[OK] Os documentos XML são equivalentes.`.
+
+Essas duas execuções foram realizadas pelo responsável e são distintas da avaliação independente do Testador.
+
+### 10.4. Validação da distribuição em Windows independente
+
+O Testador extraiu o executável e a DLL fornecida em:
+
+`C:\Teste JackCompiler\Aplicacao`
+
+A aplicação iniciou e executou os testes funcionais no outro computador Windows 11, sem instalação de Qt, CMake ou MinGW. O conjunto distribuído foi suficiente para o ambiente efetivamente testado.
+
+Esta validação da distribuição não possui identificador individual próprio. O identificador W-00 corresponde especificamente à inicialização do executável no ambiente Windows independente. O identificador W-13 corresponde exclusivamente ao teste de falha de permissão de leitura do arquivo XML gerado, descrito no relatório do Testador; não identifica a validação da distribuição.
+
+Limite: não extrapolar o resultado para todas as versões, arquiteturas ou configurações possíveis do Windows. O relatório não apresenta hash coletado no computador independente para comparação criptográfica com o executável originalmente encaminhado.
+
+### 10.5. Regressão VM — W-12
+
+O Testador compilou os seis projetos oficiais do Nand2Tetris Project 11 a partir de 11 arquivos Jack, utilizando o modo não interativo existente:
+
+`jack_cli.exe --compile <diretorio> --output <diretorio>`
+
+Todos os projetos retornaram código de saída zero e produziram a quantidade esperada de arquivos VM:
+
+| Projeto | Arquivos Jack | Arquivos VM esperados/gerados | Resultado |
+|---|---:|---:|---|
+| Seven | 1 | 1/1 | PASS |
+| ConvertToBin | 1 | 1/1 | PASS |
+| Square | 3 | 3/3 | PASS* |
+| Average | 1 | 1/1 | PASS |
+| Pong | 4 | 4/4 | PASS |
+| ComplexArrays | 1 | 1/1 | PASS |
+| **Total** | **11** | **11/11** | **PASS** |
+
+\* Em Square, `PASS*` refere-se exclusivamente à compilação dos três arquivos Jack e à geração dos três arquivos VM esperados. A avaliação funcional é apresentada separadamente: movimentação aprovada; redimensionamento não aprovado.
+
+Os arquivos foram executados no VM Emulator desktop. Seven, ConvertToBin, Average, ComplexArrays e Pong apresentaram os resultados esperados. Square permitiu movimentação, mas não redimensionamento.
+
+**Ressalva de Square:** o comportamento de redimensionamento também foi reproduzido pelo Testador com o compilador oficial do Nand2Tetris. Portanto, não há evidência para atribuir essa limitação ao JackCompiler. O resultado não foi tratado como defeito da implementação.
+
+A conclusão do Testador foi de que não foram identificadas regressões funcionais na geração VM associadas às alterações do Comparador XML, dentro dos projetos e cenários avaliados. Isso não constitui prova de correção de todas as construções Jack.
+
+### 10.6. Identificação do executável Windows
+
+O responsável compilou a versão readequada no checkout Windows e informou o seguinte SHA-256 para `build-cli\\jack_cli.exe`:
+
+`872C19742D981CD3B7A4DE58C468CA3D8794C77E08D0C7D363A9D8225D0B80FE`
+
+O hash identifica o binário produzido naquela compilação. Não foi fornecido hash independente do arquivo executado no computador do Testador; assim, a correspondência do binário da avaliação é baseada no processo de entrega e no relatório do Testador, não em verificação criptográfica bilateral.
+
+### 10.7. Parecer do Desenvolvedor e encerramento
+
+Com base na implementação, nas evidências de compilação, nos testes realizados pelo responsável e no relatório conclusivo do Testador, o Desenvolvedor declarou-se favorável ao encerramento.
+
+Estado final:
+- implementação do Comparador XML: concluída;
+- integração ao `jack_core` e à CLI: concluída;
+- DEF-XML-01: aprovado;
+- DEF-XML-02: aprovado;
+- interface final opções 10 e 11: aprovada;
+- tratamento de erros e caminhos: aprovado nos cenários executados;
+- distribuição Windows: validada no ambiente independente testado, com a limitação de generalização registrada;
+- regressão VM W-12: compilação e geração dos arquivos VM aprovadas nos seis projetos; validação funcional aprovada nos cenários avaliados de Seven, ConvertToBin, Average, ComplexArrays e Pong; em Square, movimentação aprovada e redimensionamento não aprovado;
+- avaliação independente: concluída e aprovada.
+
+Não foi identificada pendência técnica que justifique manter a implementação aberta ou realizar novas modificações de código nesta fase.
+
+Não foram realizados commit, tag, release ou push. Essas operações permanecem condicionadas à autorização explícita do responsável pelo projeto.
+
+---
+
+## 11. Registro de mudanças — atualização de 28/11/2026
+
+- Atualizada a data do handoff para 28/11/2026.
+- Atualizada a seção de limitações para remover pendências do Comparador XML que foram superadas pela avaliação independente.
+- Atualizado o estado da seção 9 com a compilação Windows, o CTest 1/1, as comparações reais ArrayTest e o SHA-256 do executável.
+- Acrescentada a seção 10 com os resultados conclusivos DEF-XML-01, DEF-XML-02, interface, validação da distribuição Windows independente e regressão VM W-12. A distribuição não possui identificador individual de teste; W-00 identifica a inicialização no ambiente independente e W-13 identifica a falha de permissão.
+- Registradas explicitamente as diferenças entre a especificação original do Analista e o escopo final aprovado pelo responsável.
+- Registradas as limitações de rastreabilidade do hash do executável e de generalização do teste de distribuição Windows.
+- Registrada a manifestação favorável do Desenvolvedor ao encerramento.
+- Nenhuma operação Git foi realizada.
+

@@ -2,8 +2,8 @@
 
 **Projeto:** JackCompiler  
 **Responsabilidade:** planejamento, execução e registro de testes, avaliação de regressões e transferência do estado de validação.  
-**Última atualização:** 22/11/2026  
-**Fase mais recente registrada:** validação funcional do VMCodeGenerator com os seis programas oficiais do Project 11.
+**Última atualização:** 28/11/2026  
+**Fase mais recente registrada:** avaliação funcional do Comparador XML da CLI, incluindo correções DEF-XML-01/02, readequação da interface, testes Windows W-00 a W-13 e regressão dos seis programas oficiais do Project 11.
 
 ---
 
@@ -393,3 +393,274 @@ Ao iniciar uma nova fase:
 O parecer deve refletir exatamente o escopo testado. Uma etapa pode ser encerrada com limitações documentadas, desde que não sejam ocultadas nem atribuídas indevidamente ao JackCompiler.
 
 **Estado da última fase:** VMCodeGenerator — implementação declarada concluída pelo Desenvolvedor e validação funcional encerrada pelo Testador, dentro do escopo dos seis programas oficiais e dos cenários descritos, com ressalvas e lacunas explicitadas.
+
+---
+
+## 12. Fase Comparador XML — avaliação funcional e regressão (28/11/2026)
+
+### 12.1 Escopo da fase
+
+Avaliar a entrega do Comparador XML da CLI após:
+
+- correção do defeito DEF-XML-01 (nomes distintos para exportação léxica e sintática);
+- correção do defeito DEF-XML-02 (identificação de DTD efetivo, sem rejeitar ocorrências em comentário ou CDATA);
+- readequação da interface para solicitar somente os caminhos do XML de referência e do XML gerado;
+- validação do executável em Windows 11 sem Qt, CMake ou MinGW instalados;
+- regressão da geração VM com os seis programas oficiais do Nand2Tetris Project 11;
+- teste complementar de falha de permissão de leitura (W-13).
+
+A interface avaliada:
+
+- opção 10: Comparar XML léxico;
+- opção 11: Comparar XML sintático;
+- ambas solicitam apenas o caminho do XML de referência e o caminho do XML gerado;
+- arquivos podem estar em diretórios distintos.
+
+### 12.2 Pacote e proveniência
+
+- Arquivo recebido: `jack_cli(1).zip`.
+- SHA-256 do ZIP registrado durante a avaliação: `13eb2172364e208cca062400e4ac6216ae7958e93f4d9f6149fd59944ae790e3`.
+- Conteúdo informado/inspecionado na entrega: `jack_cli.exe` e `libwinpthread-1.dll`.
+- O pacote foi descompactado em `C:\Teste JackCompiler\Aplicacao`.
+- Ambiente de teste: Windows 11, Windows PowerShell 5.1, sem instalação de Qt, CMake ou MinGW.
+- O executável iniciou e executou os cenários relatados neste handoff.
+
+**Commit/hash do código-fonte:** não fornecido nem confirmado para esta entrega. O hash do ZIP identifica o pacote distribuído, não o commit Git nem prova, por si só, a correspondência entre fontes e binário.
+
+### 12.3 Ambiente e organização dos testes Windows
+
+Raiz da avaliação: `C:\Teste JackCompiler`
+
+Diretórios:
+
+- `Aplicacao`
+- `Referencias`
+- `Gerados`
+- `Fixtures`
+- `Resultados`
+
+Referências oficiais utilizadas:
+
+- `C:\Teste JackCompiler\Referencias\ArrayTest`
+- `C:\Teste JackCompiler\Referencias\ExpressionLessSquare`
+- `C:\Teste JackCompiler\Referencias\Square`
+
+Fontes oficiais do Project 11: `C:\nand2tetris\projects\11`
+
+### 12.4 Comparador XML — resultados W-00 a W-11
+
+Os resultados abaixo foram executados pelo responsável no computador Windows de teste e apresentados ao Testador por transcript/saída do PowerShell. Não os descrever como execução direta do Testador.
+
+| Teste | Cenário | Resultado |
+|---|---|---|
+| W-00 | Inicialização do executável no ambiente Windows sem ferramentas de desenvolvimento | PASS — menu principal abriu |
+| W-01 | Comparação léxica de ArrayTest (`MainT.xml` × `Main_lexico.xml`) | PASS — documentos equivalentes |
+| W-02 | Comparação sintática de ArrayTest (`Main.xml` × `Main_sintatico.xml`) | PASS — documentos equivalentes |
+| W-03 | Caminhos com espaços em `C:\Teste JackCompiler` | PASS |
+| W-04 | Arquivo de referência inexistente | PASS — erro específico |
+| W-05 | Arquivo gerado inexistente | PASS — erro específico |
+| W-06 | Diretório informado no lugar do arquivo de referência | PASS — rejeitado como não sendo arquivo regular |
+| W-07 | XML malformado | PASS — diagnóstico de tags incompatíveis, linha 1, coluna 28 |
+| W-08 | Raiz XML incompatível | PASS — esperada `<class>`, referência e gerado com `<tokens>` |
+| W-09 | Retorno ao menu após comparação/erro | PASS — relatado pelo responsável |
+| W-10 | Repetição das exportações léxica e sintática | PASS — exportações repetidas com sucesso |
+| W-11 | Comentário, CDATA e DTD efetivo | PASS — três cenários com resultados esperados |
+
+Detalhes adicionais:
+
+- W-01 e W-02 utilizaram caminhos em `Referencias\ArrayTest` e `Gerados\ArrayTest`.
+- W-04 e W-05 verificaram separadamente arquivo de referência e arquivo gerado inexistentes.
+- W-06 foi demonstrado com diretório no campo de referência. O mesmo cenário no campo do arquivo gerado não foi apresentado.
+- W-07 foi demonstrado com XML malformado no campo do arquivo gerado.
+- W-10 confirmou exportação com destino explicitamente indicado e repetição aceitando o destino sugerido. Os arquivos exportados ao aceitar o destino sugerido foram gravados no diretório de referências; registrar isso como detalhe do procedimento, não como falha funcional demonstrada.
+- W-09 foi relatado como funcional pelo responsável; a saída apresentada mostrou o retorno ao menu após as operações.
+
+### 12.5 W-11 — distinção entre comentário, CDATA e DTD
+
+Foram criados cinco fixtures:
+
+- `comentario.xml`: contém `<!DOCTYPE fake>` dentro de comentário;
+- `controle_comentario.xml`: controle equivalente sem comentário;
+- `cdata.xml`: contém `<!DOCTYPE fake>` dentro de CDATA;
+- `controle_cdata.xml`: contém o mesmo conteúdo textual por entidades XML;
+- `dtd.xml`: contém declaração DTD efetiva.
+
+Resultados Windows:
+
+- `comentario.xml` × `controle_comentario.xml`: equivalentes;
+- `cdata.xml` × `controle_cdata.xml`: equivalentes;
+- `dtd.xml` × `controle_comentario.xml`: DTD rejeitado, com diagnóstico "DTD e declarações de entidades não são suportados" e localização linha 1, coluna 1.
+
+Resultado: 3/3 cenários principais PASS no executável Windows. Somam-se aos quatro cenários independentes já executados anteriormente na validação da correção DEF-XML-02.
+
+### 12.6 W-12 — regressão da geração VM no Windows
+
+#### Fontes e compilação
+
+Raiz: `C:\nand2tetris\projects\11`
+
+Foram encontrados 11 fontes Jack distribuídos por seis diretórios:
+
+| Projeto | Fontes Jack | Arquivos VM esperados | Arquivos VM gerados | Código de saída |
+|---|---:|---:|---:|---:|
+| Seven | 1 | 1 | 1 | 0 |
+| ConvertToBin | 1 | 1 | 1 | 0 |
+| Square | 3 | 3 | 3 | 0 |
+| Average | 1 | 1 | 1 | 0 |
+| Pong | 4 | 4 | 4 | 0 |
+| ComplexArrays | 1 | 1 | 1 | 0 |
+| **Total** | **11** | **11** | **11** | **0 em todos** |
+
+Executável: `C:\Teste JackCompiler\Aplicacao\jack_cli.exe`
+
+Saídas: `C:\Teste JackCompiler\Gerados\W12\<Projeto>`
+
+Comando utilizado para cada projeto:
+
+```powershell
+& $Exe --compile $Entrada --output $Saida
+```
+
+Relatório gerado pelo script: `C:\Teste JackCompiler\Resultados\W12_compilacao.txt`
+
+Os seis projetos foram compilados com código de saída zero e quantidade esperada de arquivos VM. O transcript da execução foi fornecido pelo responsável.
+
+#### Execução no VM Emulator desktop
+
+Os programas foram carregados a partir dos diretórios `Gerados\W12`.
+
+**Seven**
+
+- Saída observada: `7`.
+- Resultado: PASS.
+
+**ConvertToBin**
+
+- `RAM[8000]` foi inicializada com `8001`.
+- O programa escreveu 16 bits em `RAM[8001]` a `RAM[8016]`.
+- Sequência observada: `1 0 0 0 0 0 1 0 1 1 1 1 1 0 0 0`.
+- A sequência corresponde à representação binária de 8001 em ordem de bit menos significativo para mais significativo.
+- Resultado: PASS.
+
+**Average**
+
+- Entradas utilizadas: 10, 20 e 30.
+- Saída observada: `Average is 20`.
+- Resultado: PASS.
+
+**ComplexArrays**
+
+A captura apresentada pelo responsável mostrou os cinco resultados:
+
+- teste 1: 5;
+- teste 2: 40;
+- teste 3: 0;
+- teste 4: 77;
+- teste 5: 110.
+
+Todos corresponderam aos resultados esperados.
+
+- Resultado: PASS (5/5 verificações internas).
+
+**Square**
+
+- O programa foi executado.
+- O quadrado respondeu aos comandos direcionais.
+- Os comandos de redimensionamento não funcionaram.
+- Resultado: movimentação PASS; redimensionamento não aprovado.
+- Preservar a ressalva histórica: o redimensionamento também havia sido observado como não funcional com o compilador oficial no emulador online, conforme comparação relatada anteriormente pelo Desenvolvedor. Não classificar como defeito confirmado do JackCompiler.
+
+**Pong**
+
+- O responsável informou que todos os testes funcionaram no VM Emulator desktop.
+- Resultado: PASS, conforme relato do responsável.
+
+#### Parecer W-12
+
+- 6/6 diretórios compilados;
+- 11/11 arquivos VM gerados;
+- resultados funcionais aprovados nos cenários avaliados de Seven, ConvertToBin, Average, ComplexArrays e Pong;
+- em Square, movimentação aprovada e redimensionamento não aprovado;
+- a limitação de redimensionamento também foi reproduzida com o compilador oficial no emulador online, conforme relato anterior do Desenvolvedor;
+- a evidência atual de Pong é execução desktop relatada pelo responsável, distinta do resultado histórico relatado pelo Desenvolvedor no emulador online.
+
+Não foram identificadas regressões funcionais na geração VM associadas à readequação do Comparador XML, dentro do escopo avaliado.
+
+### 12.7 W-13 — falha de permissão de leitura
+
+O responsável criou:
+
+- `C:\Teste JackCompiler\Fixtures\W13_Permissao\controle.xml`;
+- `C:\Teste JackCompiler\Fixtures\W13_Permissao\sem_permissao.xml`.
+
+Foi aplicada uma negação explícita de leitura ao usuário corrente usando `icacls`:
+
+```powershell
+$Arquivo = "C:\Teste JackCompiler\Fixtures\W13_Permissao\sem_permissao.xml"
+$Usuario = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+icacls $Arquivo /deny "${Usuario}:(R)"
+```
+
+Durante a restrição, a opção 10 foi executada com `controle.xml` como referência e `sem_permissao.xml` como gerado.
+
+Mensagem observada:
+
+```text
+[ERRO] Não foi possível abrir o arquivo gerado:
+C:\Teste JackCompiler\Fixtures\W13_Permissao\sem_permissao.xml.
+Verifique o caminho e as permissões de leitura.
+```
+
+A aplicação permaneceu funcional, retornou ao menu e encerrou normalmente. A permissão foi removida com:
+
+```powershell
+icacls $Arquivo /remove:d $Usuario
+```
+
+A leitura posterior com `Get-Content` confirmou a restauração.
+
+Resultado: PASS. A falha de acesso foi identificada sem ser confundida com arquivo inexistente ou XML malformado.
+
+### 12.8 Parecer consolidado da fase Comparador XML
+
+| Área | Resultado |
+|---|---|
+| DEF-XML-01 — nomes distintos de exportação | PASS |
+| DEF-XML-02 — identificação de DTD efetivo | PASS |
+| Interface por dois caminhos explícitos | PASS |
+| Tratamento de caminhos inválidos/inexistentes | PASS nos cenários executados |
+| XML malformado e localização do erro | PASS |
+| Raiz XML incompatível | PASS |
+| Retorno ao menu | PASS |
+| Execução em Windows sem ferramentas de desenvolvimento | Validada no ambiente testado |
+| Regressão Project 11 — compilação | PASS, 6/6 projetos e 11/11 arquivos VM |
+| Regressão Project 11 — execução VM | Resultados funcionais aprovados nos cenários avaliados de Seven, ConvertToBin, Average, ComplexArrays e Pong; em Square, movimentação aprovada e redimensionamento não aprovado |
+| Falha de permissão W-13 | PASS |
+
+**Parecer do Testador:** avaliação funcional encerrada com parecer favorável, sem defeitos novos identificados nos cenários executados. A aprovação é limitada à versão/pacote e ao escopo efetivamente testados; não constitui garantia de ausência de defeitos.
+
+### 12.9 Limitações, lacunas e proveniência
+
+- Não foi fornecido commit/hash Git correspondente ao executável `jack_cli.exe` distribuído em `jack_cli(1).zip`.
+- O SHA-256 registrado identifica o ZIP recebido, não o código-fonte nem uma tag Git.
+- Os testes W-00 a W-13 foram executados pelo responsável no computador Windows e reportados ao Testador por transcrições, saídas e captura. Não declarar que o Testador executou diretamente a aplicação Windows.
+- A compilação Linux independente e os testes anteriores de núcleo/regressão da entrega foram registrados em mensagens anteriores; conservar a proveniência própria desses testes.
+- W-06 foi demonstrado com diretório no campo de referência; não foi apresentado o mesmo caso no campo do arquivo gerado.
+- O comportamento de redimensionamento de Square permanece uma ressalva conhecida, reproduzida anteriormente com a referência oficial conforme relato do Desenvolvedor.
+- W-13 testou a permissão de leitura do arquivo gerado. Não foi demonstrada a mesma condição para o arquivo de referência.
+- Não foi apresentada cobertura exaustiva da linguagem Jack, de todos os tipos de erro de sistema de arquivos ou de todas as versões/configurações do Windows.
+- A avaliação não identifica um commit específico. Antes de associar o parecer a uma tag/release, obter do Desenvolvedor o hash e a confirmação de correspondência entre fontes e binário.
+
+### 12.10 Encerramento e próximas responsabilidades
+
+A fase de avaliação funcional do Comparador XML foi encerrada pelo Testador em 28/11/2026, com parecer favorável e ressalvas documentadas.
+
+O Testador solicitou ao Desenvolvedor manifestação técnica sobre:
+
+1. ciência dos resultados;
+2. confirmação de correspondência entre implementação entregue e versão testada;
+3. divergências conhecidas entre especificação e comportamento;
+4. pendências técnicas ainda existentes;
+5. manifestação sobre encerramento da implementação.
+
+A consolidação documental do projeto e a integração dos resultados ao histórico geral são responsabilidade do Gerenciador Documental. Este handoff é atualizado pelo Testador para preservar seu próprio estado de validação.

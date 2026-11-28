@@ -1,4 +1,5 @@
 #include "jack/cli/application.h"
+#include "jack/xml/comparadorxml.h"
 
 #include <vector>
 #include <fstream>
@@ -7,6 +8,7 @@
 #include <utility>
 #include <filesystem>
 #include <algorithm>
+#include <cctype>
 
 namespace jack::cli {
 
@@ -31,6 +33,8 @@ int Application::exibirMenuPrincipal()
         {7, "Exportar XML sintático"},
         {8, "Executar testes"},
         {9, "Testar arquivos Jack em lote"},
+        {10, "Comparar XML léxico"},
+        {11, "Comparar XML sintático"},
         {0, "Sair"}
     };
 
@@ -154,14 +158,12 @@ void Application::exportarXmlLexico()
 
     const std::filesystem::path caminhoOriginal(caminhoArquivo);
 
-    const std::string nomeSugerido =
-        caminhoOriginal.parent_path().string() +
-        "/" +
-        caminhoOriginal.stem().string() +
-        ".xml";
+    const std::filesystem::path caminhoSugerido =
+        caminhoOriginal.parent_path() /
+        (caminhoOriginal.stem().string() + "_lexico.xml");
 
     terminal.exibirInformacao(
-        "Destino sugerido: " + nomeSugerido
+        "Destino sugerido: " + caminhoSugerido.string()
         );
 
     std::string caminhoDestino = terminal.lerTexto(
@@ -169,7 +171,7 @@ void Application::exportarXmlLexico()
         );
 
     if (caminhoDestino.empty())
-        caminhoDestino = nomeSugerido;
+        caminhoDestino = caminhoSugerido.string();
 
     std::filesystem::path caminhoXml(caminhoDestino);
 
@@ -283,7 +285,7 @@ void Application::exportarXmlSintatico()
 
     const std::filesystem::path caminhoSugerido =
         caminhoOriginal.parent_path() /
-        (caminhoOriginal.stem().string() + ".xml");
+        (caminhoOriginal.stem().string() + "_sintatico.xml");
 
     terminal.exibirInformacao(
         "Destino sugerido: " + caminhoSugerido.string()
@@ -752,6 +754,171 @@ void Application::analisarCompleto()
     analisarSintatico();
 }
 
+
+void Application::compararXml(bool lexico)
+{
+    using jack::xml::ComparadorXml;
+    using jack::xml::XMLComparisonStatus;
+    using jack::xml::XMLDocumentType;
+
+    const XMLDocumentType tipo = lexico
+        ? XMLDocumentType::Lexical
+        : XMLDocumentType::Syntax;
+    const std::string modalidade = lexico ? "léxico" : "sintático";
+
+    terminal.exibirTitulo("Comparação de XML " + modalidade);
+
+    const std::string caminhoReferenciaInformado = terminal.lerTexto(
+        "Informe o caminho do XML de referência: "
+        );
+    if (caminhoReferenciaInformado.empty()) {
+        terminal.exibirAviso("Caminho do XML de referência não informado.");
+        return;
+    }
+
+    const std::string caminhoGeradoInformado = terminal.lerTexto(
+        "Informe o caminho do XML gerado: "
+        );
+    if (caminhoGeradoInformado.empty()) {
+        terminal.exibirAviso("Caminho do XML gerado não informado.");
+        return;
+    }
+
+    const std::filesystem::path caminhoReferencia(
+        caminhoReferenciaInformado);
+    const std::filesystem::path caminhoGerado(caminhoGeradoInformado);
+
+    auto lerArquivoXml = [this](const std::filesystem::path& caminho,
+                                const std::string& descricao,
+                                std::string& conteudo) {
+        std::error_code erroFilesystem;
+
+        const bool existe = std::filesystem::exists(caminho, erroFilesystem);
+        if (erroFilesystem) {
+            terminal.exibirErro(
+                "Não foi possível verificar o arquivo " + descricao
+                + ": " + erroFilesystem.message());
+            return false;
+        }
+        if (!existe) {
+            terminal.exibirErro(
+                "Arquivo " + descricao + " não encontrado: "
+                + caminho.string());
+            return false;
+        }
+
+        const bool arquivoRegular =
+            std::filesystem::is_regular_file(caminho, erroFilesystem);
+        if (erroFilesystem) {
+            terminal.exibirErro(
+                "Falha ao verificar o arquivo " + descricao + ": "
+                + erroFilesystem.message());
+            return false;
+        }
+        if (!arquivoRegular) {
+            terminal.exibirErro(
+                "O caminho informado para " + descricao
+                + " não corresponde a um arquivo regular: "
+                + caminho.string());
+            return false;
+        }
+
+        std::ifstream arquivo(caminho, std::ios::in | std::ios::binary);
+        if (!arquivo.is_open()) {
+            terminal.exibirErro(
+                "Não foi possível abrir o arquivo " + descricao + ": "
+                + caminho.string()
+                + ". Verifique o caminho e as permissões de leitura.");
+            return false;
+        }
+
+        std::ostringstream buffer;
+        buffer << arquivo.rdbuf();
+
+        if (arquivo.bad()) {
+            terminal.exibirErro(
+                "Ocorreu uma falha durante a leitura do arquivo "
+                + descricao + ": " + caminho.string());
+            return false;
+        }
+
+        conteudo = buffer.str();
+        return true;
+    };
+
+    std::string xmlReferencia;
+    std::string xmlGerado;
+
+    if (!lerArquivoXml(caminhoReferencia, "de referência", xmlReferencia))
+        return;
+
+    if (!lerArquivoXml(caminhoGerado, "gerado", xmlGerado))
+        return;
+
+    terminal.exibirInformacao("Iniciando comparação...");
+    terminal.exibirInformacao(
+        "Referência: " + caminhoReferencia.string());
+    terminal.exibirInformacao(
+        "Gerado: " + caminhoGerado.string());
+
+    const ComparadorXml comparador;
+    const auto resultado = comparador.comparar(
+        xmlReferencia,
+        xmlGerado,
+        tipo,
+        ComparadorXml::MaxDifferencesDefault
+        );
+
+    terminal.exibirSeparador();
+
+    if (resultado.status == XMLComparisonStatus::Equivalent) {
+        terminal.exibirSucesso("Os documentos XML são equivalentes.");
+        return;
+    }
+
+    if (resultado.status == XMLComparisonStatus::Different) {
+        terminal.exibirErro("Os documentos XML apresentam divergências.");
+        terminal.exibirInformacao(
+            "Quantidade total de divergências: "
+            + std::to_string(resultado.totalDifferences));
+
+        for (const auto& diferenca : resultado.differences) {
+            terminal.exibirInformacao(
+                diferenca.path + " — " + diferenca.description);
+            terminal.exibirInformacao(
+                "  Referência: " + diferenca.expected);
+            terminal.exibirInformacao(
+                "  Gerado: " + diferenca.actual);
+        }
+
+        if (resultado.totalDifferences > resultado.differences.size()) {
+            terminal.exibirAviso(
+                "Exibição limitada a "
+                + std::to_string(resultado.differences.size())
+                + " divergências; o total foi contabilizado.");
+        }
+        return;
+    }
+
+    terminal.exibirErro(resultado.message);
+
+    if (resultado.expectedErrorLine != 0) {
+        terminal.exibirInformacao(
+            "Erro no XML de referência — linha "
+            + std::to_string(resultado.expectedErrorLine)
+            + ", coluna "
+            + std::to_string(resultado.expectedErrorColumn));
+    }
+
+    if (resultado.actualErrorLine != 0) {
+        terminal.exibirInformacao(
+            "Erro no XML gerado — linha "
+            + std::to_string(resultado.actualErrorLine)
+            + ", coluna "
+            + std::to_string(resultado.actualErrorColumn));
+    }
+}
+
 void Application::processarOpcao(int opcao)
 {
     switch (opcao)
@@ -790,6 +957,14 @@ void Application::processarOpcao(int opcao)
 
     case 9:
         testarArquivosEmLote();
+        break;
+
+    case 10:
+        compararXml(true);
+        break;
+
+    case 11:
+        compararXml(false);
         break;
 
     }

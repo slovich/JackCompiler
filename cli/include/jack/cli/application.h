@@ -46,6 +46,7 @@ private:
     void exportarXmlSintatico();
     void executarTestes();
     void testarArquivosEmLote();
+    void compararXml(bool lexico);
     void exibirArquivoSelecionado() const;
 };
 

@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(BUILD_GUI "Compilar a interface gráfica Qt" ON)
+option(BUILD_XML_COMPARATOR_REGRESSION_TESTS
+    "Habilitar testes de regressão do Comparador XML" OFF)
 
 if(BUILD_GUI)
     set(CMAKE_AUTOUIC ON)
@@ -94,6 +96,8 @@ set(CORE_SOURCES
     core/src/xml/geradorxmllexico.cpp
     core/include/jack/xml/geradorxmlsintatico.h
     core/src/xml/geradorxmlsintatico.cpp
+    core/include/jack/xml/comparadorxml.h
+    core/src/xml/comparadorxml.cpp
 
     # Lexer
     core/include/jack/lexer/token.h
@@ -106,6 +110,19 @@ set(CORE_SOURCES
     core/src/parser/analisadorsintatico.cpp
 )
 
+# Dependência XML de terceiros: pugixml 1.16.
+# Mantida como alvo estático privado do jack_core, sem dependência de Qt.
+add_library(jack_pugixml STATIC
+    third_party/pugixml/pugixml.cpp
+)
+
+target_include_directories(jack_pugixml
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pugixml
+)
+
+target_compile_features(jack_pugixml PUBLIC cxx_std_11)
+
 add_library(jack_core STATIC
     ${CORE_SOURCES}
     core/include/jack/parser/syntaxresult.h
@@ -113,8 +130,15 @@ add_library(jack_core STATIC
     core/src/ast/parenthesizedexpressionnode.cpp
 )
 
-target_include_directories(jack_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/core/include
+target_include_directories(jack_core
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/core/include
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/pugixml
+)
+
+target_link_libraries(jack_core PRIVATE
+    jack_pugixml
 )
 
 if(BUILD_GUI)
@@ -233,5 +257,22 @@ if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     target_link_options(jack_cli PRIVATE
         -static-libgcc
         -static-libstdc++
+    )
+endif()
+
+if(BUILD_XML_COMPARATOR_REGRESSION_TESTS)
+    enable_testing()
+
+    add_executable(comparadorxml_regression_tests
+        tests/comparadorxml_regression_tests.cpp
+    )
+
+    target_link_libraries(comparadorxml_regression_tests PRIVATE
+        jack_core
+    )
+
+    add_test(
+        NAME comparadorxml_regression_tests
+        COMMAND comparadorxml_regression_tests
     )
 endif()
